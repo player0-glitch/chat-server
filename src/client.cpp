@@ -1,96 +1,134 @@
-#include <cerrno>
+#include <algorithm>
+#include <arpa/inet.h>
 #include <csignal>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <fcntl.h>
 #include <iostream>
+#include <memory>
 #include <netinet/in.h>
 #include <poll.h>
+#include <pthread.h>
+#include <string.h> //strlen
+#include <sys/poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
+using std::cout, std::endl, std::cerr;
 
-void handle_close_signal(int sig);
-int client_socket_fd = -1;
-bool is_connected = false;
-int main() {
-  // Gracefull handling of client Closing
-  signal(SIGINT, handle_close_signal);
+// Constants
+constexpr int NAME_LEN = 32;
+constexpr int MSG_LEN = 1024;
 
-  // Create a socket  with IPv4
-  client_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+// globals
+int socket_fd = -1;
+sockaddr_in address;
+unsigned int port = 0;
+char ip[INET_ADDRSTRLEN]; // 16 -> length of an ip address
+pthread_t send_thread;
+pthread_t receive_thread;
+void *thread_return_val;
 
-  if (client_socket_fd < 0) {
-    std::cerr << "Failed to create socket " << strerror(errno) << std::endl;
-    close(client_socket_fd);
-  } else if (client_socket_fd == 0) {
-    is_connected = true;
-    std::cout << "Successfully created client socket " << is_connected
-              << std::endl;
+// containers
+std::string user_name(NAME_LEN, '\0');
+char buff[MSG_LEN + NAME_LEN];
+char send_buff[MSG_LEN + NAME_LEN];
+pollfd polled_fds[2]; // non-blocking I/O with the socket
+// function signature
+void handle_errors(const char *msg, int &arg);
+void write_client_info();
+void non_blocking(int fd);
+void *send_msg(void *fd);
+void *receive_msg(void *fd);
+
+int main(int argc, char *argv[]) {
+
+  // argc is the number of command line arguments
+  if (argc != 4) {
+    cerr << "Incorrect amount of command line arguments " << argc
+         << "expected 3\n";
+    cout << "<user name> <ip> <port>\n";
+    exit(EXIT_FAILURE);
   }
-  // Bind to that socket using any port above 1023 and localhost
-  sockaddr_in address{AF_INET, htons(9999), {0}};
+  // Setting up the client information
+  //  the first arguments is the name of the program
+  /*std::copy(argv[1], argv[1] + strlen(argv[1]), user_name);*/
+  user_name = argv[1];
+  std::copy(argv[2], argv[2] + strlen(argv[2]), ip);
+  port = std::stoi(argv[3]);
+  cout << port << endl;
+  // Create the client socket
+  socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+  if (socket_fd < 0)
+    handle_errors("Failed to create a client socket", socket_fd);
 
-  int connection_stat = connect(
-      client_socket_fd, (const struct sockaddr *)&address, sizeof(address));
-  if (connection_stat < 0) {
-    std::cerr << "Client failed to connect to server " << strerror(errno)
-              << std::endl;
-    close(client_socket_fd);
-  } else {
-    is_connected = true;
-    std::cout << "Successfully connected client to server " << is_connected
-              << " " << strerror(errno) << std::endl;
-  }
+  address.sin_port = htons(port);
+  address.sin_family = AF_INET;
+  if (inet_pton(AF_INET, ip, &address.sin_addr) < 0)
+    handle_errors("IP Address error ", socket_fd);
+  cout << "IP " << ip << " Port " << port << endl;
+  // Connect client
+  if (connect(socket_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
+    handle_errors("Failed to connect client to server", socket_fd);
+  write_client_info();
 
-  /*int server = accept(client_socket_fd, 0, 0);*/
-  // poll for listen events from the client and server side
+  /*non_blocking(0);*/
+  /*non_blocking(socket_fd);*/
+  std::unique_ptr<int> result;
+  pthread_create(&send_thread, nullptr, send_msg, (void *)&socket_fd);
+  pthread_create(&receive_thread, nullptr, receive_msg, (void *)&socket_fd);
 
-  struct pollfd polled_fds[2] = {{0,       // stdin == 0 fd
-                                  POLL_IN, // there is data to be read
-                                  0},
-                                 {client_socket_fd,
-                                  POLL_IN, // there is data to be read
-                                  0}};
-  std::cout << "Done Polling\nAbout To execute chat\n" << is_connected << "\n";
-  while (is_connected) {
-    // Buffer to hold messages to be sent bach and forth
-    char buff[1024];
-    /*std::cout << "While\n";*/
-    int polled_result = poll(
-        polled_fds, 2, 50000); // poll for 5seconds. It'll block for 5
-                               // seconds or untl a file descriptor is ready
-    if (polled_result < 0) {
-      std::cerr << "Server failed to poll connections\n";
-      close(client_socket_fd);
-    }
-    if (polled_result == 0) {
-      std::cerr << "Server timed out\n";
-    }
+  pthread_join(send_thread, &thread_return_val);
+  pthread_join(receive_thread, &thread_return_val);
 
-    // Execute the chat
-    if (polled_fds[0].revents & POLL_IN) {
-      // read what the client sent
-      read(0, buff, sizeof(buff) - 1);
-      // allows the server to write back to the client
-      /*std::cout << "Client Reading " << read_stat << '\n';*/
-      send(client_socket_fd, buff, sizeof(buff) - 1, 0);
-    } else if (polled_fds[1].revents & POLL_IN) {
-      // reason for the -1 is to explicity leave space for EOF(string
-      // terminator)
+  result.reset(
+      static_cast<std::unique_ptr<int> *>(thread_return_val)->release());
 
-      if (recv(client_socket_fd, buff, sizeof(buff) - 1, 0) == 0) {
-        std::cout << "Client got no data recieved from buffer "
-                  << strerror(errno) << std::endl;
-      }
-      std::cout << "Server: " << buff << '\n'; // show the text recieved text
-    }
-  }
+  delete static_cast<std::unique_ptr<int> *>(thread_return_val);
+  close(socket_fd); // gracefully close the socket
   return 0;
 }
-void handle_close_signal(int sig) {
-  std::cout << "Recieved close signal " << sig << " \n";
-  if (client_socket_fd != -1) {
-    std::cout << "Closing server \n";
-    close(client_socket_fd);
+
+void write_client_info() {
+  std::string name(NAME_LEN + 2, '\0');
+  name[0] = '!';
+  name.insert(1, user_name);
+  if (send(socket_fd, name.c_str(), name.length(), 0) < 0)
+    cerr << "failed to send user name for server\n";
+}
+void handle_errors(const char *msg, int &arg) {
+  cerr << msg << " " << errno << " " << strerror(errno) << endl;
+  close(arg);
+  exit(EXIT_FAILURE);
+}
+void non_blocking(int fd) { fcntl(fd, F_SETFL, O_NONBLOCK); }
+
+void *send_msg(void *fd) {
+  int client_fd = *((int *)fd);
+  std::string message(MSG_LEN, '\0');
+  while (1) {
+    // get lient input
+    std::getline(std::cin, message);
+    /*cout << "line " << message << " length " << strlen(message.c_str())*/
+    /*<< " buff size " << sizeof(message) << endl;*/
+    /*cout << "type:: ";*/
+    send(client_fd, message.c_str(), message.length(), 0);
   }
-  std::cout << "Exiting client\n";
-  exit(0);
-};
+  return nullptr;
+}
+
+void *receive_msg(void *fd) {
+  int client_fd = *((int *)fd);
+  while (1) {
+
+    char recieve_buff[MSG_LEN + NAME_LEN];
+
+    int bytes_in = read(client_fd, recieve_buff, sizeof(recieve_buff));
+    /*cout << "::type ";*/
+    if (bytes_in < 0)
+      cerr << "Failed to read from the server\n";
+    std::string recieve_str(recieve_buff, bytes_in);
+    cout << recieve_buff << endl;
+    std::memset(recieve_buff, '\0', sizeof(recieve_buff));
+  }
+}
