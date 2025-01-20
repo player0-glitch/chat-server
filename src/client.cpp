@@ -27,7 +27,6 @@ unsigned int port = 0;
 char ip[INET_ADDRSTRLEN]; // 16 -> length of an ip address
 pthread_t send_thread;
 pthread_t receive_thread;
-void *thread_return_val;
 
 // containers
 std::string user_name(NAME_LEN, '\0');
@@ -73,18 +72,13 @@ int main(int argc, char *argv[]) {
   write_client_info();
 
   /*non_blocking(0);*/
-  /*non_blocking(socket_fd);*/
   std::unique_ptr<int> result;
   pthread_create(&send_thread, nullptr, send_msg, (void *)&socket_fd);
   pthread_create(&receive_thread, nullptr, receive_msg, (void *)&socket_fd);
 
-  pthread_join(send_thread, &thread_return_val);
-  pthread_join(receive_thread, &thread_return_val);
+  pthread_join(send_thread, nullptr);
+  pthread_join(receive_thread, nullptr);
 
-  result.reset(
-      static_cast<std::unique_ptr<int> *>(thread_return_val)->release());
-
-  delete static_cast<std::unique_ptr<int> *>(thread_return_val);
   close(socket_fd); // gracefully close the socket
   return 0;
 }

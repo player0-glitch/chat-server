@@ -1,3 +1,4 @@
+#include "timer.cpp" //timer class for performance testing
 #include <arpa/inet.h>
 #include <cerrno>
 #include <cstdio>
@@ -11,13 +12,13 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <unordered_map>
-
 using std::cout, std::cerr, std::endl;
 
 constexpr int PORT = 10000;
-constexpr int MAX_CLIENTS = 10;
+constexpr int MAX_CLIENTS = 256;
 constexpr int MAX_BUFF = 1058;
 constexpr int MAX_USR_LEN = 32;
+
 // globals
 struct sockaddr_in server_addr;
 unsigned int sockaddr_len;
@@ -27,19 +28,23 @@ int new_socket = -1;
 int highest_fd = -1;
 int sock_activity = 0;
 int bytes_read = -1;
+int client_count = 0;
 
 // holds all out active socker activity
 fd_set master_set, current_set;
 struct Client {
   int fd;
-  char name[MAX_USR_LEN];
+  char name[MAX_USR_LEN] = {'\0'};
+  char password[MAX_USR_LEN];
 };
+
 // containers
 int clients[MAX_CLIENTS];
-Client client_structs[MAX_CLIENTS];
 char buff[MAX_BUFF]; // filled with newline values
 std::unordered_map<int, Client> clients_map;
+
 // function signatures
+void queue_client(int fd);
 void handle_errors(const char *msg, int &arg);
 void broadcast_msg(int sender, char *msg, size_t len);
 void broadcast_connection(int new_client, char *msg, int name_len);
@@ -88,7 +93,6 @@ int main() {
     // because select is destructive
     current_set = master_set;
     highest_fd = server_fd;
-    /*char buff[MAX_BUFF];*/
 
     // add client (child) socket file descriptors into the set
     for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -116,30 +120,32 @@ int main() {
                                (socklen_t *)&sockaddr_len)) < 0) {
         handle_errors("Failed to accept new connection", server_fd);
       } else {
-        // add new connection to cleints
-        for (int i = 0; i < MAX_CLIENTS; i++) {
+        /*{
+          Timer timer;
+          // add new connection to cleints
+          for (int i = 0; i < MAX_CLIENTS; i++) {
 
-          // space for new client in the queue for clients
-          if (clients[i] == 0) {
-            clients[i] = new_socket;
-            client_structs[i].fd = new_socket;
-            cout << __LINE__ << ": Added new client to queue as socket "
-                 << new_socket << endl;
-            // inform server user of new connection and details
+            // space for new client in the queue for clients
+            if (clients[i] == 0) {
+              clients[i] = new_socket;
+              cout << __LINE__ << ": Added new client to queue as socket "
+                   << new_socket << "\n";
+              // inform server user of new connection and details
 
-            break;
+              break;
+            }
           }
-        }
+
+        }*/
+        // this does the same thing as the uncommented code but has a more
+        // consistent performance (smaller standard deviation)
+        queue_client(new_socket);
       }
     }
     /*or some I/O activity like writing to or reading from some other socket*/
     for (int i = 0; i < MAX_CLIENTS; i++) {
       client_fd = clients[i];
       if (FD_ISSET(client_fd, &current_set)) {
-        //////////////////////////////////////////////////////////
-        /////                                              ///////
-        /////                                             ///////
-        /////////////////////////////////////////////////////////
         // handle client disconneting from the server
         bytes_read = read(client_fd, buff, sizeof(buff));
         /*buff[length + 1] = '\0';*/
@@ -160,12 +166,20 @@ int main() {
   }
   return 0;
 }
-
+/* @brief handles and kind of socket error, prints out corresponding errors from
+ * errno given by the code that calls it and closes the socket
+ */
 void handle_errors(const char *msg, int &arg) {
   cerr << msg << " " << strerror(errno) << "\n";
   close(arg);
   exit(EXIT_FAILURE);
 }
+/* @brief broadcasts received data from one client to the rest of the other
+ * connected clients
+ * @param sender client file descriptors whose received data will be broadcasted
+ * @ param msg recieved data
+ * @ len length of the received data
+ */
 void broadcast_msg(int sender, char *msg, size_t len) {
   int bytes_sent = 0;
   msg[len] = '\0';
@@ -182,7 +196,12 @@ void broadcast_msg(int sender, char *msg, size_t len) {
     }
   }
 }
-
+/* @brief broadcasts to the connected client that a new client has joined the
+ * chat
+ * @param new_client the newest connected client on the server
+ * @msg message the server will broadcast to connected client
+ * @name_len length of msg string
+ */
 void broadcast_connection(int new_client, char *msg, int name_len) {
   getpeername(client_fd, (struct sockaddr *)&server_addr,
               (socklen_t *)&sockaddr_len);
@@ -204,7 +223,10 @@ void broadcast_connection(int new_client, char *msg, int name_len) {
     }
   }
 }
-
+/* @brief writes to the server user what client has Disconnected
+ * @param fd disconnected client
+ * @param index of disconnected client in the client queue
+ */
 void client_disconnect(int fd, int i) {
   getpeername(fd, (struct sockaddr *)&server_addr, (socklen_t *)&sockaddr_len);
   char ip[INET_ADDRSTRLEN];
@@ -216,7 +238,10 @@ void client_disconnect(int fd, int i) {
   close(fd);
   FD_CLR(fd, &current_set); // remove socket from set
 }
-
+/* @brief adds the client details from client to the server
+ * @param fd file descriptor of the client whose details we're saving
+ * @username_buff client user name with delimeter
+ */
 void get_client_details(int fd, int i, const char *username_buff) {
   // rigorous check purely for my sanity
   // implies that client at i and client struct at i == fd
@@ -224,9 +249,24 @@ void get_client_details(int fd, int i, const char *username_buff) {
     Client c;
     c.fd = fd;
     std::copy(username_buff + 1, username_buff + strlen(username_buff), c.name);
-    clients_map[c.fd] = c;
-    clients_map.insert_or_assign(c.fd, c);
     clients_map[fd] = c;
   }
   cout << clients_map[fd].name << endl;
+}
+/* @brief adds a new client to the client queue
+ */
+void queue_client(int fd) {
+
+  if (client_count > MAX_CLIENTS) {
+    cerr << "CLIENT QUEUE IS FULL\n";
+    return;
+  }
+
+  for (int i = client_count; i < MAX_CLIENTS; i++) {
+    if (clients[i] == 0) {
+      clients[i] = fd;
+      client_count++;
+      break;
+    }
+  }
 }
