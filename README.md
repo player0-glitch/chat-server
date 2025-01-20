@@ -1,5 +1,4 @@
 
-
 # Chat Server
 
 A traditional client-server with TCP/IP protocol where the server act as a middle-man that broadcast client messages to other connected clients.
@@ -39,5 +38,8 @@ To run the client 3 command-line arguements are needed
 ```bash
 ./client <user-name> <server IP address> <port>
 ```
+
+
+
 
 
