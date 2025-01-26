@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.30.5)
+cmake_minimum_required(VERSION 3.20)
 project(chat-server)
 set(CMAKE_CXX_STANDARD 20)
 #Clangd compile commands
@@ -12,4 +12,3 @@ add_executable(client ${CMAKE_SOURCE_DIR}/src/client.cpp)
 #compile with some debug symbols
 target_compile_options(server PRIVATE -Wall -Werror -g -O0)
 
-#source files
