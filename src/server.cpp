@@ -35,7 +35,7 @@ fd_set master_set, current_set;
 struct Client {
   int fd;
   char name[MAX_USR_LEN] = {'\0'};
-  char password[MAX_USR_LEN];
+  char password[MAX_USR_LEN]; // idk if i'll ever implement this
 };
 
 // containers
@@ -50,12 +50,14 @@ void broadcast_msg(int sender, char *msg, size_t len);
 void broadcast_connection(int new_client, char *msg, int name_len);
 void get_client_details(int fd, int i, const char *username_buff);
 void client_disconnect(int fd, int i);
+
 int main() {
   // create a socket
-  if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+  if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     handle_errors("Failed to create server socket", errno);
-  else
+  } else {
     cout << "Successfully made server socket" << endl;
+  }
 
   // master server addrs
   server_addr = {AF_INET, htons(PORT), INADDR_ANY};
@@ -63,26 +65,28 @@ int main() {
   // allows for socket to be reusable
   int opt = 1;
   if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt,
-                 sizeof(opt)) != 0)
+                 sizeof(opt)) != 0) {
     handle_errors("Failed to make server reusable", server_fd);
-  else
+  } else {
     cout << "Successfully made server reusable" << endl;
+  }
 
   // bind the socket
   if (bind(server_fd, (const struct sockaddr *)&server_addr,
-           sizeof(server_addr)) < 0)
+           sizeof(server_addr)) < 0) {
     handle_errors("Failed to bind socket to addr", server_fd);
-  else
+  } else {
     cout << "Successfully binded socket to addr" << endl;
+  }
 
   // listen to connections
-  if (listen(server_fd, 3) < 0)
+  if (listen(server_fd, 3) < 0) {
     handle_errors("Failed to listen to connection", server_fd);
-  else {
+  } else {
     char ip[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &(server_addr.sin_addr), ip, INET_ADDRSTRLEN);
     cout << "Server runnining on " << ip << ":" << ntohs(server_addr.sin_port)
-         << endl;
+         << "\n";
   }
   // have a fd set for allowing multiple clients
   FD_ZERO(&master_set);
@@ -98,18 +102,19 @@ int main() {
     for (int i = 0; i < MAX_CLIENTS; i++) {
       client_fd = clients[i];
       // looking for a valid client socket file description to add to add to
-      if (client_fd > 0)
+      if (client_fd > 0) {
         FD_SET(client_fd, &current_set);
+      }
 
-      if (client_fd > highest_fd)
+      if (client_fd > highest_fd) {
         highest_fd = client_fd;
+      }
     }
 
     sock_activity =
         select(highest_fd + 1, &current_set, nullptr, nullptr, nullptr);
     if (sock_activity < 0) {
       cerr << "Failed to get get socket acitiviy " << strerror(errno) << endl;
-      /*continue;*/
     }
 
     // there is some activity happening on the server's socket
@@ -166,6 +171,7 @@ int main() {
   }
   return 0;
 }
+
 /* @brief handles and kind of socket error, prints out corresponding errors from
  * errno given by the code that calls it and closes the socket
  */
@@ -174,6 +180,7 @@ void handle_errors(const char *msg, int &arg) {
   close(arg);
   exit(EXIT_FAILURE);
 }
+
 /* @brief broadcasts received data from one client to the rest of the other
  * connected clients
  * @param sender client file descriptors whose received data will be broadcasted
@@ -196,6 +203,7 @@ void broadcast_msg(int sender, char *msg, size_t len) {
     }
   }
 }
+
 /* @brief broadcasts to the connected client that a new client has joined the
  * chat
  * @param new_client the newest connected client on the server
@@ -208,12 +216,15 @@ void broadcast_connection(int new_client, char *msg, int name_len) {
   char ip[INET_ADDRSTRLEN];
   inet_ntop(AF_INET, &(server_addr.sin_addr), ip, INET_ADDRSTRLEN);
   char send_buff[MAX_BUFF];
-  /*std::string s = "++++++++" + msg + "++++++++\n";*/
+  cout << "Broadcast Connection buffer check\n";
+  for (int i = 0; i < MAX_BUFF; i++) {
+    send_buff[i] = '\0';
+  }
   unsigned long n = snprintf(send_buff, sizeof(send_buff),
                              "++++++++%s joined chat++++++++\n%s\n", msg, ip);
-  if (n >= sizeof(send_buff))
+  if (n >= sizeof(send_buff)) {
     cout << "Overflow could occur\n";
-  else {
+  } else {
     for (int i = 0; i < MAX_CLIENTS; i++) {
       // only announce to connected clients
       if (clients[i] != 0 && clients[i] != new_client) {
@@ -223,6 +234,7 @@ void broadcast_connection(int new_client, char *msg, int name_len) {
     }
   }
 }
+
 /* @brief writes to the server user what client has Disconnected
  * @param fd disconnected client
  * @param index of disconnected client in the client queue
@@ -238,13 +250,12 @@ void client_disconnect(int fd, int i) {
   close(fd);
   FD_CLR(fd, &current_set); // remove socket from set
 }
+
 /* @brief adds the client details from client to the server
  * @param fd file descriptor of the client whose details we're saving
  * @username_buff client user name with delimeter
  */
 void get_client_details(int fd, int i, const char *username_buff) {
-  // rigorous check purely for my sanity
-  // implies that client at i and client struct at i == fd
   if (clients[i] == fd) {
     Client c;
     c.fd = fd;
@@ -253,7 +264,9 @@ void get_client_details(int fd, int i, const char *username_buff) {
   }
   cout << clients_map[fd].name << endl;
 }
+
 /* @brief adds a new client to the client queue
+ * @fd the client  file discriptor to be enqueued
  */
 void queue_client(int fd) {
 
