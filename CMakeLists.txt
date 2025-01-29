@@ -10,8 +10,12 @@ add_executable(server ${CMAKE_SOURCE_DIR}/src/server.cpp)
 
 #Client executable
 add_executable(client ${CMAKE_SOURCE_DIR}/src/client.cpp)
+add_executable(clientUI ${CMAKE_SOURCE_DIR}/src/client/clientUI.cpp)
 #compile with some debug symbols
 target_compile_options(server PRIVATE -Wall -Werror -g -O0)
+target_compile_options(client PRIVATE -Wall -Werror -g -O0)
+
+
 set(FETCHCONTENT_UPDATES_DISCONNECTED TRUE)
 FetchContent_Declare(ftxui
   GIT_REPOSITORY https://github.com/ArthurSonzogni/ftxui
@@ -19,8 +23,8 @@ FetchContent_Declare(ftxui
 )
 FetchContent_MakeAvailable(ftxui)
  
-project(ftxui-starter LANGUAGES CXX VERSION 1.0.0)
-add_executable(ftxui-starter src/main.cpp)
+# project(ftxuiLANGUAGES CXX VERSION )
+# add_executable(clientUI src/main.cpp)
 target_link_libraries(ftxui-starter
   PRIVATE ftxui::screen
   PRIVATE ftxui::dom
