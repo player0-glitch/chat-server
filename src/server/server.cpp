@@ -11,11 +11,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <unordered_map>
-<<<<<<< HEAD
-using std::cout, std::cerr;
-=======
 using std::cout, std::cerr, std::endl;
->>>>>>> main
 
 constexpr int PORT = 10000;
 constexpr int MAX_CLIENTS = 256;
@@ -53,21 +49,13 @@ void broadcast_msg(int sender, char *msg, size_t len);
 void broadcast_connection(int new_client, char *msg, int name_len);
 void get_client_details(int fd, int i, const char *username_buff);
 void client_disconnect(int fd, int i);
-<<<<<<< HEAD
-void clean_buff(char *buffer);
-=======
->>>>>>> main
 
 int main() {
   // create a socket
   if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     handle_errors("Failed to create server socket", errno);
   } else {
-<<<<<<< HEAD
-    cout << "Successfully made server socket\n";
-=======
     cout << "Successfully made server socket" << endl;
->>>>>>> main
   }
 
   // master server addrs
@@ -79,11 +67,7 @@ int main() {
                  sizeof(opt)) != 0) {
     handle_errors("Failed to make server reusable", server_fd);
   } else {
-<<<<<<< HEAD
-    cout << "Successfully made server reusabl\n";
-=======
     cout << "Successfully made server reusable" << endl;
->>>>>>> main
   }
 
   // bind the socket
@@ -91,11 +75,7 @@ int main() {
            sizeof(server_addr)) < 0) {
     handle_errors("Failed to bind socket to addr", server_fd);
   } else {
-<<<<<<< HEAD
-    cout << "Successfully binded socket to addr\n";
-=======
     cout << "Successfully binded socket to addr" << endl;
->>>>>>> main
   }
 
   // listen to connections
@@ -133,11 +113,7 @@ int main() {
     sock_activity =
         select(highest_fd + 1, &current_set, nullptr, nullptr, nullptr);
     if (sock_activity < 0) {
-<<<<<<< HEAD
-      cerr << "Failed to get get socket acitiviy " << strerror(errno) << "\n";
-=======
       cerr << "Failed to get get socket acitiviy " << strerror(errno) << endl;
->>>>>>> main
     }
 
     // there is some activity happening on the server's socket
@@ -178,11 +154,7 @@ int main() {
         bytes_read = read(client_fd, buff, sizeof(buff));
         /*buff[length + 1] = '\0';*/
         if (bytes_read < 0) {
-<<<<<<< HEAD
-          cout << "Failed to read from incomming buffer " << bytes_read << "\n";
-=======
           cout << "Failed to read from incomming buffer " << bytes_read << endl;
->>>>>>> main
         } else if (bytes_read == 0) {
           client_disconnect(client_fd, i);
         } else if (buff[0] == '!') {
@@ -226,11 +198,7 @@ void broadcast_msg(int sender, char *msg, size_t len) {
       temp[strlen(temp)] = '\0';
       bytes_sent = send(clients[i], temp, strlen(temp), 0);
       if (bytes_sent < 0)
-<<<<<<< HEAD
-        cout << "Failed to broadcast messages " << strerror(errno) << "\n";
-=======
         cout << "Failed to broadcast messages " << strerror(errno) << endl;
->>>>>>> main
     }
   }
 }
@@ -247,15 +215,10 @@ void broadcast_connection(int new_client, char *msg, int name_len) {
   char ip[INET_ADDRSTRLEN];
   inet_ntop(AF_INET, &(server_addr.sin_addr), ip, INET_ADDRSTRLEN);
   char send_buff[MAX_BUFF];
-<<<<<<< HEAD
-  /*cout << "Broadcast Connection buffer check\n";*/
-
-=======
   cout << "Broadcast Connection buffer check\n";
   for (int i = 0; i < MAX_BUFF; i++) {
     send_buff[i] = '\0';
   }
->>>>>>> main
   unsigned long n = snprintf(send_buff, sizeof(send_buff),
                              "++++++++%s joined chat++++++++\n%s\n", msg, ip);
   if (n >= sizeof(send_buff)) {
@@ -279,22 +242,9 @@ void client_disconnect(int fd, int i) {
   getpeername(fd, (struct sockaddr *)&server_addr, (socklen_t *)&sockaddr_len);
   char ip[INET_ADDRSTRLEN];
   inet_ntop(AF_INET, &(server_addr.sin_addr), ip, INET_ADDRSTRLEN);
-<<<<<<< HEAD
-  // Inform the chat room
-  char send_buff[MAX_CLIENTS];
-  clean_buff(send_buff);
-  cout << "Disconnected from map " << clients_map[i].name << "\n";
-  /*unsigned int n = snprintf(send_buff, sizeof(send_buff),*/
-  /*"++++++++%s left chat++++++++\n", name);*/
-
-  // Inform server user
-  cout << "Client Disconnected IP:" << ip << ":" << ntohs(server_addr.sin_port)
-       << "\n";
-=======
 
   cout << "Client Disconnected IP:" << ip << ":" << ntohs(server_addr.sin_port)
        << endl;
->>>>>>> main
   clients[i] = 0; // removing client from lineup
   close(fd);
   FD_CLR(fd, &current_set); // remove socket from set
@@ -311,11 +261,7 @@ void get_client_details(int fd, int i, const char *username_buff) {
     std::copy(username_buff + 1, username_buff + strlen(username_buff), c.name);
     clients_map[fd] = c;
   }
-<<<<<<< HEAD
-  cout << clients_map[fd].name << "\n";
-=======
   cout << clients_map[fd].name << endl;
->>>>>>> main
 }
 
 /* @brief adds a new client to the client queue
@@ -336,13 +282,3 @@ void queue_client(int fd) {
     }
   }
 }
-<<<<<<< HEAD
-/* @brief cleans a buffer of size MAX_CLIENTS with zeros
- */
-void clean_buff(char *buffer) {
-  for (int i = 0; i < MAX_BUFF; i++) {
-    buffer[i] = '\0';
-  }
-}
-=======
->>>>>>> main
