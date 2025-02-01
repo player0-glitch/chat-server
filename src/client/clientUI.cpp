@@ -35,22 +35,20 @@ int main() {
   auto online_panel = Renderer([] {
     vector<Element> user_lines;
     for (const auto &u : online_user)
-      user_lines.emplace_back(text(u));
+      user_lines.push_back(paragraphAlignLeft(u));
 
-    return window(text("Online"), vbox(user_lines) | frame |
-                                      size(WIDTH, LESS_THAN, 20) |
-                                      borderRounded);
+    return window(text("Online"),
+                  vbox(user_lines) | frame | size(WIDTH, LESS_THAN, 20));
   });
 
   // This shows the main messages thread
   auto message_window = Renderer([] {
     vector<Element> message_lines;
     for (const auto &msg : user_messages)
-      message_lines.emplace_back(text(msg));
+      message_lines.emplace_back(paragraphAlignLeft(msg));
 
-    return window(text("Online"), vbox(message_lines) | frame |
-                                      size(WIDTH, LESS_THAN, 20) |
-                                      borderRounded);
+    return window(text("Messages"),
+                  vbox(message_lines) | frame | size(WIDTH, LESS_THAN, 20));
   });
 
   //**************************************************************************
@@ -58,9 +56,9 @@ int main() {
   //**************************************************************************
 
   // this CatchEvent function takes a lambda as an arguement
-  input_box |= CatchEvent([&](const Event &e) {
+  input_box |= CatchEvent([&](Event e) {
     if (e == Event::Return) {
-      user_messages.emplace_back("<You>: " + input_text);
+      user_messages.push_back("<You>: " + input_text);
       input_text.clear();
       return true;
     }
@@ -77,5 +75,6 @@ int main() {
        input_box});
 
   screen.Loop(window_layout);
+
   return EXIT_SUCCESS;
 }
