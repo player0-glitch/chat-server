@@ -24,7 +24,7 @@ int main() {
   /*  // Horizontal box with text wrapped in a window*/
   /*  return vbox({window(text(title) | flex | size(WIDTH, EQUAL,
    * window_width)*/
-  /*                      /*| size(HEIGHT, LESS_THAN, window_height)*/
+  /*                      size(HEIGHT, LESS_THAN, window_height)*/
 
   /*                      paragraphAlignLeft(s) | flex)});*/
   /*};*/
