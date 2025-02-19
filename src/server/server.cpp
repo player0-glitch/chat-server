@@ -51,7 +51,7 @@ void get_client_details(int fd, int i, const char *username_buff);
 void client_disconnect(int fd, int i);
 
 int main() {
-  // create a socket
+  // create the server socket
   if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     handle_errors("Failed to create server socket", errno);
   } else {
@@ -62,7 +62,7 @@ int main() {
   server_addr = {AF_INET, htons(PORT), INADDR_ANY};
   sockaddr_len = sizeof(server_addr);
   // allows for socket to be reusable
-  int opt = 1;
+  int opt = 1; // this option is only used for setting the server to be reusable
   if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt,
                  sizeof(opt)) != 0) {
     handle_errors("Failed to make server reusable", server_fd);
@@ -93,7 +93,8 @@ int main() {
                                   //
 
   while (1) {
-    // because select is destructive
+    // because the select function is destructive in that it will change/destroy
+    // file descriptor sets everytime you use it
     current_set = master_set;
     highest_fd = server_fd;
 
