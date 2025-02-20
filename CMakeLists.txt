@@ -28,3 +28,10 @@ target_link_libraries(clientUI
   PRIVATE ftxui::screen
   PRIVATE ftxui::dom
   PRIVATE ftxui::component )
+
+##### Testing the online code from the ftxui website
+add_executable(test ${CMAKE_SOURCE_DIR}/test/test.cpp)
+target_link_libraries(test 
+  PRIVATE ftxui::screen
+  PRIVATE ftxui::dom
+  PRIVATE ftxui::component)
