@@ -59,7 +59,7 @@ int main() {
   }
 
   // master server addrs
-  server_addr = {AF_INET, htons(PORT), INADDR_ANY};
+  server_addr = {AF_INET, htons(PORT), INADDR_ANY, {0}};
   sockaddr_len = sizeof(server_addr);
   // allows for socket to be reusable
   int opt = 1;
