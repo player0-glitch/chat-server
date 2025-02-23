@@ -4,14 +4,16 @@ set(CMAKE_CXX_STANDARD 20)
 #Clangd compile commands
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+#include directories
+include_directories(${CMAKE_SOURCE_DIR}/include/)
 #Server executable
 add_executable(server ${CMAKE_SOURCE_DIR}/src/server/server.cpp)
 
 #Client executable
 add_executable(client ${CMAKE_SOURCE_DIR}/src/client/client.cpp)
 #compile with some debug symbols
-target_compile_options(server PRIVATE -Wall -Werror -g -O0)
-target_compile_options(client PRIVATE -Wall -Werror -g -O0)
+target_compile_options(server PRIVATE -Wall -Werror -Wextra -g -O0)
+target_compile_options(client PRIVATE -Wall -Werror -Wextra -g -O0)
 
 ##TUI
 include(FetchContent)   # to fetch repos online 
@@ -21,10 +23,21 @@ FetchContent_Declare(ftxui
   GIT_TAG main #15587dad01a9ef0e5e79d97a16adf414f60669a5 
 )
 FetchContent_MakeAvailable(ftxui)
- 
+set(SOURCES 
+  src/client/clientUI.cpp
+  src/client/Scroller.cpp) 
 # project(ftxuiLANGUAGES CXX VERSION )
-add_executable(clientUI ${CMAKE_SOURCE_DIR}/src/client/clientUI.cpp)
+
+add_executable(clientUI ${SOURCES}) 
 target_link_libraries(clientUI
+  ftxui::screen
+  ftxui::dom
+  ftxui::component 
+)
+
+##### Testing the online code from the ftxui website
+add_executable(test ${CMAKE_SOURCE_DIR}/test/test.cpp)
+target_link_libraries(test 
   PRIVATE ftxui::screen
   PRIVATE ftxui::dom
-  PRIVATE ftxui::component )
+  PRIVATE ftxui::component)
