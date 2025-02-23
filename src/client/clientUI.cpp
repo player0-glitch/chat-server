@@ -1,3 +1,4 @@
+#include "../include/Scroller.h"
 #include <cstdio>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
@@ -10,7 +11,6 @@
 #include <iostream>
 #include <string>
 #include <vector>
-
 using namespace ftxui;
 using std::vector;
 
@@ -29,8 +29,9 @@ int main() {
   Component input_box = Input(&input_text, "type message...");
 
   Element input_window =
-      window(text("Type Messages ") | hcenter, text("type "));
-  // This should be the side panel that shows who online in the chatroom
+      window(text("Type Messages ") | hcenter,
+             text("type ")); // This should be the side panel that shows who
+                             // online in the chatroom
   auto online_panel = Renderer([] {
     vector<Element> user_lines;
     for (const auto &u : online_user)
@@ -39,17 +40,15 @@ int main() {
     return window(text("Online") | hcenter,
                   vbox(user_lines) | frame | size(WIDTH, GREATER_THAN, 20));
   });
-
   // This shows the main messages thread
   auto message_window = Renderer([] {
     vector<Element> message_lines;
     for (const auto &msg : user_messages)
       message_lines.emplace_back(paragraphAlignLeft(msg));
-
     return window(text("Messages") | hcenter,
                   vbox(message_lines) | size(WIDTH, GREATER_THAN, 20));
   });
-
+  message_window = Scroller(message_window);
   //**************************************************************************
   //  Event Handling
   //**************************************************************************
@@ -87,7 +86,7 @@ int main() {
                 size(HEIGHT, GREATER_THAN, 10),
             message_window | size(WIDTH, GREATER_THAN, message_window_sizex) |
                 size(HEIGHT, GREATER_THAN, 12)}),
-       input_box});
+       (text("Input..."), input_box)});
 
   auto debug = [&]() -> Component {
     input_len = input_text.length();
@@ -133,3 +132,8 @@ auto create_messages_window(vector<std::string> &user_messages) -> Component {
   container |= vscroll_indicator;
   return container;
 }*/
+
+auto create_scrollable_messages_win(vector<std::string> &user_messages)
+    -> Component {
+  return nullptr;
+}
