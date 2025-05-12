@@ -137,9 +137,12 @@ void *receive_msg(void *fd) {
 
       // code might not even reach here.
       // only God knows how long I've been at this so I'll just dettach
-      // the thread from within here. May you all forgive me
+      // the thread from within here.
       if (pthread_detach(pthread_self()) != 0) {
         cerr << "Failed to detach itself\n";
+      } else {
+        cout << "Client Thread should have detached itself\n";
+        pthread_exit(nullptr); // should do what #147 is supposed
       }
       return nullptr;
     }

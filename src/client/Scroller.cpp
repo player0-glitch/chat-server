@@ -20,7 +20,7 @@ public:
   ScrollerBase(Component child) { Add(child); }
 
 private:
-  Element Render() final {
+  Element Render() {
     auto focused = Focused() ? focus : ftxui::select;
     auto style = Focused() ? inverted : nothing;
 

@@ -46,7 +46,7 @@ std::unordered_map<int, Client> clients_map;
 void queue_client(int fd);
 void handle_errors(const char *msg, int &arg);
 void broadcast_msg(int sender, char *msg, size_t len);
-void broadcast_connection(int new_client, char *msg, int name_len);
+void broadcast_connection(int new_client, char *msg);
 void get_client_details(int fd, int i, const char *username_buff);
 void client_disconnect(int fd, int i);
 
@@ -162,7 +162,7 @@ int main() {
           get_client_details(new_socket, i, buff);
           Client c = clients_map[new_socket]; // some reason with wont read
                                               // straight from the map
-          broadcast_connection(new_socket, c.name, strlen(c.name));
+          broadcast_connection(new_socket, c.name);
         } else {
           broadcast_msg(client_fd, buff, bytes_read);
         }
@@ -208,9 +208,8 @@ void broadcast_msg(int sender, char *msg, size_t len) {
  * chat
  * @param new_client the newest connected client on the server
  * @msg message the server will broadcast to connected client
- * @name_len length of msg string
  */
-void broadcast_connection(int new_client, char *msg, int name_len) {
+void broadcast_connection(int new_client, char *msg) {
   getpeername(client_fd, (struct sockaddr *)&server_addr,
               (socklen_t *)&sockaddr_len);
   char ip[INET_ADDRSTRLEN];
