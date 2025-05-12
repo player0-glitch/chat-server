@@ -28,7 +28,14 @@ mkdir build
 You can run CMake how you see fit, this is just my recommendation as this was developed on Linux (Windows and MacOS were not tested).
 
 ```bash
+#Recommended command to let your system choose a build tool 
+cmake . -B build
+
+#To use Makefiles as your build tool
 cmake -G "Unix Makefiles" -B build
+
+#To use Ninja as your build tool 
+cmake -G "Ninja" -B build
 make 
 ```
 This build both the client and the server into the build directory.
