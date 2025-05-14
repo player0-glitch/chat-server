@@ -237,7 +237,6 @@ void client_disconnect(int fd, int index) {
        << endl;
   clients[index] = 0; // removing client from lineup
 
-  std::printf("Current Client Count = {%d} \n\n", client_count);
   // Reorder the clients queue
   //*Cursor should only exist for valid connectinos */
   int temp_count = client_count;
@@ -251,11 +250,8 @@ void client_disconnect(int fd, int index) {
       // when the code gets here, the first index pointed too will have a
       // disconnected client at that index
       if (clients[j + 1] != 0) {
-        cout << "Current J " << clients[j] << endl
-             << "Next J " << clients[j + 1] << endl;
         clients[j] = clients[j + 1]; // move valid connections to the left
         clients[j + 1] = 0;          // move the 0s to the right
-        cout << "Temp Count Value " << temp_count << "\n";
         break;
       }
     }
@@ -264,14 +260,8 @@ void client_disconnect(int fd, int index) {
   // i expect this function to be called everytime a client disconnects
   // thus we decrement the client_count once every function call
   temp_count--;
-  cout << "Printing list\n";
-  for (int i = 0; i < client_count; i++) {
-    cout << "INDEX: " << i << " FD: " << clients[i] << '\n';
-  }
 
   client_count = temp_count;
-  cout << "Client count " << client_count << " Temp Count " << temp_count
-       << endl;
 
   close(fd);
   FD_CLR(fd, &current_set); // remove socket from set
