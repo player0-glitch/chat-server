@@ -6,7 +6,9 @@
 #include <iostream>
 #include <netinet/in.h>
 #include <ostream>
+#include <print>
 #include <string.h>
+#include <strings.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -48,7 +50,7 @@ void handle_errors(const char *msg, int &arg);
 void broadcast_msg(int sender, char *msg, size_t len);
 void broadcast_connection(int new_client, char *msg);
 void get_client_details(int fd, int i, const char *username_buff);
-void client_disconnect(int fd, int i);
+void client_disconnect(int fd, int index);
 
 int main() {
   // create the server socket
@@ -90,7 +92,6 @@ int main() {
   // have a fd set for allowing multiple clients
   FD_ZERO(&master_set);
   FD_SET(server_fd, &master_set); // server is always on top
-                                  //
 
   while (1) {
     // because the select function is destructive in that it will change/destroy
@@ -111,10 +112,12 @@ int main() {
       }
     }
 
+    // Select can only read file descriptor less than 1024 (poll doesn't have
+    // this weakness)
     sock_activity =
         select(highest_fd + 1, &current_set, nullptr, nullptr, nullptr);
     if (sock_activity < 0) {
-      cerr << "Failed to get get socket acitiviy " << strerror(errno) << endl;
+      cerr << "Failed to get socket acitiviy " << strerror(errno) << endl;
     }
 
     // there is some activity happening on the server's socket
@@ -125,25 +128,7 @@ int main() {
                                (socklen_t *)&sockaddr_len)) < 0) {
         handle_errors("Failed to accept new connection", server_fd);
       } else {
-        /*{
-          Timer timer;
-          // add new connection to cleints
-          for (int i = 0; i < MAX_CLIENTS; i++) {
-
-            // space for new client in the queue for clients
-            if (clients[i] == 0) {
-              clients[i] = new_socket;
-              cout << __LINE__ << ": Added new client to queue as socket "
-                   << new_socket << "\n";
-              // inform server user of new connection and details
-
-              break;
-            }
-          }
-
-        }*/
-        // this does the same thing as the uncommented code but has a more
-        // consistent performance (smaller standard deviation)
+        cout << "Queuing client\n";
         queue_client(new_socket);
       }
     }
@@ -172,8 +157,11 @@ int main() {
   return 0;
 }
 
-/* @brief handles and kind of socket error, prints out corresponding errors from
+/**
+ * @brief handles and kind of socket error, prints out corresponding errors from
  * errno given by the code that calls it and closes the socket
+ * @param msg is char array of any error message you'd like to log
+ * @param arg error code used to exit
  */
 void handle_errors(const char *msg, int &arg) {
   cerr << msg << " " << strerror(errno) << "\n";
@@ -181,11 +169,12 @@ void handle_errors(const char *msg, int &arg) {
   exit(EXIT_FAILURE);
 }
 
-/* @brief broadcasts received data from one client to the rest of the other
+/**
+ * @brief broadcasts received data from one client to the rest of the other
  * connected clients
  * @param sender client file descriptors whose received data will be broadcasted
- * @ param msg recieved data
- * @ len length of the received data
+ * @param msg recieved data
+ * @len length of the received data
  */
 void broadcast_msg(int sender, char *msg, size_t len) {
   int bytes_sent = 0;
@@ -204,10 +193,11 @@ void broadcast_msg(int sender, char *msg, size_t len) {
   }
 }
 
-/* @brief broadcasts to the connected client that a new client has joined the
+/**
+ * @brief broadcasts to the connected client that a new client has joined the
  * chat
  * @param new_client the newest connected client on the server
- * @msg message the server will broadcast to connected client
+ * @param msg message the server will broadcast to connected client
  */
 void broadcast_connection(int new_client, char *msg) {
   getpeername(client_fd, (struct sockaddr *)&server_addr,
@@ -215,12 +205,11 @@ void broadcast_connection(int new_client, char *msg) {
   char ip[INET_ADDRSTRLEN];
   inet_ntop(AF_INET, &(server_addr.sin_addr), ip, INET_ADDRSTRLEN);
   char send_buff[MAX_BUFF];
-  cout << "Broadcast Connection buffer check\n";
   for (int i = 0; i < MAX_BUFF; i++) {
     send_buff[i] = '\0';
   }
   unsigned long n = snprintf(send_buff, sizeof(send_buff),
-                             "++++++++%s joined chat++++++++\n%s\n", msg, ip);
+                             "++++++++%s joined chat++++++++\n", msg);
   if (n >= sizeof(send_buff)) {
     cout << "Overflow could occur\n";
   } else {
@@ -234,25 +223,64 @@ void broadcast_connection(int new_client, char *msg) {
   }
 }
 
-/* @brief writes to the server user what client has Disconnected
+/**
+ * @brief writes to the server user what client has Disconnected
  * @param fd disconnected client
  * @param index of disconnected client in the client queue
  */
-void client_disconnect(int fd, int i) {
+void client_disconnect(int fd, int index) {
   getpeername(fd, (struct sockaddr *)&server_addr, (socklen_t *)&sockaddr_len);
   char ip[INET_ADDRSTRLEN];
   inet_ntop(AF_INET, &(server_addr.sin_addr), ip, INET_ADDRSTRLEN);
 
   cout << "Client Disconnected IP:" << ip << ":" << ntohs(server_addr.sin_port)
        << endl;
-  clients[i] = 0; // removing client from lineup
+  clients[index] = 0; // removing client from lineup
+
+  std::printf("Current Client Count = {%d} \n\n", client_count);
+  // Reorder the clients queue
+  //*Cursor should only exist for valid connectinos */
+  int temp_count = client_count;
+
+  for (int i = 0; i < client_count; i++) {
+    // first find the removed client
+    if (clients[i] != 0) // client is marked as disconnected
+      continue;
+    // Shift every client on it's right to it's left
+    for (int j = i; j <= client_count; j++) {
+      // when the code gets here, the first index pointed too will have a
+      // disconnected client at that index
+      if (clients[j + 1] != 0) {
+        cout << "Current J " << clients[j] << endl
+             << "Next J " << clients[j + 1] << endl;
+        clients[j] = clients[j + 1]; // move valid connections to the left
+        clients[j + 1] = 0;          // move the 0s to the right
+        cout << "Temp Count Value " << temp_count << "\n";
+        break;
+      }
+    }
+  }
+
+  // i expect this function to be called everytime a client disconnects
+  // thus we decrement the client_count once every function call
+  temp_count--;
+  cout << "Printing list\n";
+  for (int i = 0; i < client_count; i++) {
+    cout << "INDEX: " << i << " FD: " << clients[i] << '\n';
+  }
+
+  client_count = temp_count;
+  cout << "Client count " << client_count << " Temp Count " << temp_count
+       << endl;
+
   close(fd);
   FD_CLR(fd, &current_set); // remove socket from set
 }
 
-/* @brief adds the client details from client to the server
+/**
+ * @brief adds the client details from client to the server
  * @param fd file descriptor of the client whose details we're saving
- * @username_buff client user name with delimeter
+ * @param username_buff client user name with delimeter
  */
 void get_client_details(int fd, int i, const char *username_buff) {
   if (clients[i] == fd) {
@@ -264,8 +292,9 @@ void get_client_details(int fd, int i, const char *username_buff) {
   cout << clients_map[fd].name << endl;
 }
 
-/* @brief adds a new client to the client queue
- * @fd the client  file discriptor to be enqueued
+/**
+ * @brief adds a new client to the client %dqueue
+ * @param fd the client  file discriptor to be enqueued
  */
 void queue_client(int fd) {
 
@@ -274,10 +303,15 @@ void queue_client(int fd) {
     return;
   }
 
+  // because we keep track of how many clients are connected
+  // we can use that as an index into the client queue instead of
+  // going from the beginning everytime
   for (int i = client_count; i < MAX_CLIENTS; i++) {
     if (clients[i] == 0) {
       clients[i] = fd;
       client_count++;
+      std::cout << __FUNCTION__ << ":" << __LINE__ << " Client Count "
+                << client_count << " FD: " << fd << endl;
       break;
     }
   }
