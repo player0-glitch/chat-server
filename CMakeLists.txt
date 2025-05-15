@@ -16,28 +16,28 @@ target_compile_options(server PRIVATE -Wall -Werror -Wextra -g -O0)
 target_compile_options(client PRIVATE -Wall -Werror -Wextra -g -O0)
 
 ##TUI
-include(FetchContent)   # to fetch repos online 
+# include(FetchContent)   # to fetch repos online 
 # set(FETCHCONTENT_UPDATES_DISCONNECTED TRUE)
-FetchContent_Declare(ftxui 
-  GIT_REPOSITORY https://github.com/ArthurSonzogni/FTXUI
-  GIT_TAG main #15587dad01a9ef0e5e79d97a16adf414f60669a5 
-)
-FetchContent_MakeAvailable(ftxui)
-set(SOURCES 
-  src/client/clientUI.cpp
-  src/client/Scroller.cpp) 
-# project(ftxuiLANGUAGES CXX VERSION )
-
-add_executable(clientUI ${SOURCES}) 
-target_link_libraries(clientUI
-  ftxui::screen
-  ftxui::dom
-  ftxui::component 
-)
-
+# FetchContent_Declare(ftxui 
+  # GIT_REPOSITORY https://github.com/ArthurSonzogni/FTXUI
+  # GIT_TAG main #15587dad01a9ef0e5e79d97a16adf414f60669a5 
+# )
+# FetchContent_MakeAvailable(ftxui)
+# set(SOURCES 
+#   src/client/clientUI.cpp
+#   src/client/Scroller.cpp) 
+# # project(ftxuiLANGUAGES CXX VERSION )
+#
+# add_executable(clientUI ${SOURCES}) 
+# target_link_libraries(clientUI
+#   ftxui::screen
+#   ftxui::dom
+#   ftxui::component 
+# )
+#
 ##### Testing the online code from the ftxui website
-add_executable(test ${CMAKE_SOURCE_DIR}/test/test.cpp)
-target_link_libraries(test 
-  PRIVATE ftxui::screen
-  PRIVATE ftxui::dom
-  PRIVATE ftxui::component)
+# add_executable(test ${CMAKE_SOURCE_DIR}/test/test.cpp)
+# target_link_libraries(test 
+#   PRIVATE ftxui::screen
+#   PRIVATE ftxui::dom
+#   PRIVATE ftxui::component)
