@@ -300,8 +300,8 @@ void queue_client(int fd) {
     if (clients[i] == 0) {
       clients[i] = fd;
       client_count++;
-      std::cout << __FUNCTION__ << ":" << __LINE__ << " Client Count "
-                << client_count << " FD: " << fd << endl;
+      /*std::cout << __FUNCTION__ << ":" << __LINE__ << " Client Count "*/
+      /*<< client_count << " FD: " << fd << endl;*/
       break;
     }
   }
