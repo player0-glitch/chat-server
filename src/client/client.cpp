@@ -37,9 +37,13 @@ char send_buff[MSG_LEN + NAME_LEN];
 void help(int argc);
 void handle_errors(const char *msg, int &arg);
 void write_client_info();
+void disconnect();
+
+////these will run on their own seperate threads
 void *send_msg(void *fd);
 void *receive_msg(void *fd);
-void disconnect();
+////////////////////////////////////////////////
+
 int main(int argc, char *argv[]) {
 
   // argc is the number of command line arguments
@@ -79,12 +83,23 @@ int main(int argc, char *argv[]) {
   close(socket_fd); // gracefully close the socket
   return 0;
 }
+
+/**
+ *@brief prints out a help menu to the cmd when incorrect number of arguments
+ *are given to the program
+ @param argc is the amount of commmand-line arguments passsed into the program
+ */
 void help(int argc) {
   cerr << "Incorrect amount of command line arguments " << argc
        << "expected 3\n";
-  cout << "<user name>=32 <ip> <port>\n";
+  cout << "<user name>=32 characters  <ip> <port>\n";
   exit(EXIT_FAILURE);
 }
+
+/**
+ *@brief writes the client information (such as user )to the server once the
+ *3-way TCP handshake is done and a connection is established
+ */
 void write_client_info() {
   std::string name(NAME_LEN + 2, '\0');
   name[0] = '!';
@@ -94,12 +109,23 @@ void write_client_info() {
   }
 }
 
+/**
+ *@brief handles any error that may occur when trying to connect to the server.
+ * If an issue occurs before a connection is successfully made the client exits
+ *@param msg the error message you wish to log before the client exits
+ *@param arg the file descriptor to exit from
+ */
 void handle_errors(const char *msg, int &arg) {
   cerr << msg << " " << errno << " " << strerror(errno) << endl;
   close(arg);
   exit(EXIT_FAILURE);
 }
 
+/**
+ *@brief sends the messages from the client to the the server. This function
+ *runs in it's own thread
+ *@param fd is the file descriptor of the client once connected to the server
+ */
 void *send_msg(void *fd) {
   int client_fd = *((int *)fd);
   std::string message(MSG_LEN, '\0');
@@ -122,6 +148,11 @@ void *send_msg(void *fd) {
   return nullptr;
 }
 
+/**
+ *@brief receives the messages from the server that were sent by other clients.
+ *This function runs in it's own thread
+ *@param fd is the file descriptor of the client once connected to the server
+ */
 void *receive_msg(void *fd) {
   int client_fd = *((int *)fd);
   while (1) {
@@ -148,10 +179,16 @@ void *receive_msg(void *fd) {
     }
     std::string recieve_str(recieve_buff, bytes_in);
     cout << recieve_buff << endl;
-    std::memset(recieve_buff, '\0', sizeof(recieve_buff));
+    std::memset(recieve_buff, '\0',
+                sizeof(recieve_buff)); // this is supposed to just set
+                                       // everything in the buffer to 'nothing'
   }
 }
 
+/**
+ *@brief this disconnects the client from the server and closes the client
+ *socket
+ */
 void disconnect() {
   close(socket_fd);
   exit(0);
