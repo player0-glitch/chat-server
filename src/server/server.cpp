@@ -43,7 +43,7 @@ struct Client {
 int clients[MAX_CLIENTS];
 char buff[MAX_BUFF]; // filled with newline values
 std::unordered_map<int, Client> clients_map;
-
+void printClients();
 // function signatures
 void queue_client(int fd);
 void handle_errors(const char *msg, int &arg);
@@ -262,7 +262,7 @@ void client_disconnect(int fd, int index) {
   temp_count--;
 
   client_count = temp_count;
-
+  printClients();
   close(fd);
   FD_CLR(fd, &current_set); // remove socket from set
 }
@@ -305,4 +305,13 @@ void queue_client(int fd) {
       break;
     }
   }
+
+  printClients();
+}
+
+void printClients() {
+  for (int i = 0; i < client_count; i++) {
+    std::cout << "Fd= " << clients[i] << "\n";
+  }
+  cout << '\n';
 }
