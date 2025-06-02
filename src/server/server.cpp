@@ -40,7 +40,7 @@ struct Client {
 };
 
 // containers
-int clients[MAX_CLIENTS];
+std::pair<int, std::string_view> clients[MAX_CLIENTS];
 char buff[MAX_BUFF]; // filled with newline values
 std::unordered_map<int, Client> clients_map;
 void printClients();
@@ -52,7 +52,9 @@ void broadcast_connection(int new_client, char *msg);
 void get_client_details(int fd, int i, const char *username_buff);
 void client_disconnect(int fd, int index);
 
-int main() {
+int main(int argc, char *argv[]) {
+
+  // allow for the server to run on a given port through command-line arguments
   // create the server socket
   if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     handle_errors("Failed to create server socket", errno);
@@ -101,7 +103,8 @@ int main() {
 
     // add client (child) socket file descriptors into the set
     for (int i = 0; i < MAX_CLIENTS; i++) {
-      client_fd = clients[i];
+      client_fd = clients[i].first;
+      clients[i].second = "";
       // looking for a valid client socket file description to add to add to
       if (client_fd > 0) {
         FD_SET(client_fd, &current_set);
@@ -128,13 +131,12 @@ int main() {
                                (socklen_t *)&sockaddr_len)) < 0) {
         handle_errors("Failed to accept new connection", server_fd);
       } else {
-        cout << "Queuing client\n";
         queue_client(new_socket);
       }
     }
     /*or some I/O activity like writing to or reading from some other socket*/
     for (int i = 0; i < MAX_CLIENTS; i++) {
-      client_fd = clients[i];
+      client_fd = clients[i].first;
       if (FD_ISSET(client_fd, &current_set)) {
         // handle client disconneting from the server
         bytes_read = read(client_fd, buff, sizeof(buff));
@@ -143,12 +145,16 @@ int main() {
           cout << "Failed to read from incomming buffer " << bytes_read << endl;
         } else if (bytes_read == 0) {
           client_disconnect(client_fd, i);
-        } else if (buff[0] == '!') {
+
+        } else if (buff[0] ==
+                   '!') /*Protocol for when a new client joins chat*/ {
           get_client_details(new_socket, i, buff);
-          Client c = clients_map[new_socket]; // some reason with wont read
-                                              // straight from the map
-          broadcast_connection(new_socket, c.name);
+          clients[i].second = clients_map[new_socket].name;
+          cout << __LINE__ << ": Global Attempt\nName from Array->"
+               << clients[i].second << "\n";
+          broadcast_connection(new_socket, clients_map[new_socket].name);
         } else {
+          cout << __LINE__ << " :name -> " << clients[i].second << "\n";
           broadcast_msg(client_fd, buff, bytes_read);
         }
       }
@@ -180,13 +186,13 @@ void broadcast_msg(int sender, char *msg, size_t len) {
   int bytes_sent = 0;
   msg[len] = '\0';
   for (int i = 0; i < MAX_CLIENTS; i++) {
-    if (clients[i] != sender && clients[i] != 0) {
+    if (clients[i].first != sender && clients[i].first != 0) {
       char temp[MAX_BUFF];
       size_t fd_user_len = strlen(clients_map[sender].name);
       snprintf(temp, fd_user_len + strlen(msg) + 5, "[%s]: %s\n",
                clients_map[sender].name, msg);
       temp[strlen(temp)] = '\0';
-      bytes_sent = send(clients[i], temp, strlen(temp), 0);
+      bytes_sent = send(clients[i].first, temp, strlen(temp), 0);
       if (bytes_sent < 0)
         cout << "Failed to broadcast messages " << strerror(errno) << endl;
     }
@@ -215,8 +221,8 @@ void broadcast_connection(int new_client, char *msg) {
   } else {
     for (int i = 0; i < MAX_CLIENTS; i++) {
       // only announce to connected clients
-      if (clients[i] != 0 && clients[i] != new_client) {
-        send(clients[i], send_buff, strlen(send_buff), 0);
+      if (clients[i].first != 0 && clients[i].first != new_client) {
+        send(clients[i].first, send_buff, strlen(send_buff), 0);
         continue;
       }
     }
@@ -235,23 +241,25 @@ void client_disconnect(int fd, int index) {
 
   cout << "Client Disconnected IP:" << ip << ":" << ntohs(server_addr.sin_port)
        << endl;
-  clients[index] = 0; // removing client from lineup
-
+  clients[index].first = 0; // removing client from lineup
+  clients[index].second = "";
   // Reorder the clients queue
   //*Cursor should only exist for valid connectinos */
   int temp_count = client_count;
 
   for (int i = 0; i < client_count; i++) {
     // first find the removed client
-    if (clients[i] != 0) // client is marked as disconnected
+    if (clients[i].first != 0) // client is marked as disconnected
       continue;
     // Shift every client on it's right to it's left
     for (int j = i; j <= client_count; j++) {
       // when the code gets here, the first index pointed too will have a
       // disconnected client at that index
-      if (clients[j + 1] != 0) {
-        clients[j] = clients[j + 1]; // move valid connections to the left
-        clients[j + 1] = 0;          // move the 0s to the right
+      if (clients[j + 1].first != 0) {
+        clients[j].first =
+            clients[j + 1].first; // move valid connections to the left
+        clients[j + 1].first = 0; // move the 0s to the right
+        clients[j + 1].second = "";
         break;
       }
     }
@@ -262,6 +270,7 @@ void client_disconnect(int fd, int index) {
   temp_count--;
 
   client_count = temp_count;
+  cout << "Disconnected List\n";
   printClients();
   close(fd);
   FD_CLR(fd, &current_set); // remove socket from set
@@ -273,13 +282,14 @@ void client_disconnect(int fd, int index) {
  * @param username_buff client user name with delimeter
  */
 void get_client_details(int fd, int i, const char *username_buff) {
-  if (clients[i] == fd) {
+  if (clients[i].first == fd) {
     Client c;
     c.fd = fd;
     std::copy(username_buff + 1, username_buff + strlen(username_buff), c.name);
     clients_map[fd] = c;
+    clients[i].second = c.name;
+    /*std::cout << __FUNCTION__ << " Name -> " << clients[i].second << "\n";*/
   }
-  cout << clients_map[fd].name << endl;
 }
 
 /**
@@ -297,21 +307,23 @@ void queue_client(int fd) {
   // we can use that as an index into the client queue instead of
   // going from the beginning everytime
   for (int i = client_count; i < MAX_CLIENTS; i++) {
-    if (clients[i] == 0) {
-      clients[i] = fd;
+    if (clients[i].first == 0) {
+      clients[i].first = fd;
+      /*clients_map[i].name=*/
       client_count++;
       /*std::cout << __FUNCTION__ << ":" << __LINE__ << " Client Count "*/
       /*<< client_count << " FD: " << fd << endl;*/
       break;
     }
   }
-
-  printClients();
+  // this is for debugging
 }
 
 void printClients() {
   for (int i = 0; i < client_count; i++) {
-    std::cout << "Fd= " << clients[i] << "\n";
+    cout << "Fd from array -> " << clients[i].first << "\n";
+    cout << "Name from array ->" << clients[i].second << "\n";
+    cout << "Name (map)= " << clients_map[clients[i].first].name << "\n";
   }
   cout << '\n';
 }

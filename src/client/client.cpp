@@ -160,7 +160,6 @@ void *receive_msg(void *fd) {
     char recieve_buff[MSG_LEN + NAME_LEN];
 
     int bytes_in = read(client_fd, recieve_buff, sizeof(recieve_buff));
-    /*cout << "::type ";*/
     if (bytes_in < 0) {
       cerr << "Failed to read from the server\n";
     } else if (bytes_in == 0) {
@@ -179,6 +178,7 @@ void *receive_msg(void *fd) {
     }
     std::string recieve_str(recieve_buff, bytes_in);
     cout << recieve_buff << endl;
+    /*cout << "::type ";*/
     std::memset(recieve_buff, '\0',
                 sizeof(recieve_buff)); // this is supposed to just set
                                        // everything in the buffer to 'nothing'
