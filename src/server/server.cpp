@@ -14,8 +14,9 @@
 #include <unistd.h>
 #include <unordered_map>
 using std::cout, std::cerr, std::endl;
-
-constexpr int PORT = 10000;
+using std::string;
+constexpr int DEFAULT_PORT = 10000; // this is the default port if none is given
+                                    // as a command-line arguments
 constexpr int MAX_CLIENTS = 256;
 constexpr int MAX_BUFF = 1058;
 constexpr int MAX_USR_LEN = 32;
@@ -30,7 +31,7 @@ int highest_fd = -1;
 int sock_activity = 0;
 int bytes_read = -1;
 int client_count = 0;
-
+int port = 0;
 // holds all out active socker activity
 fd_set master_set, current_set;
 struct Client {
@@ -40,21 +41,31 @@ struct Client {
 };
 
 // containers
-std::pair<int, std::string_view> clients[MAX_CLIENTS];
-char buff[MAX_BUFF]; // filled with newline values
-std::unordered_map<int, Client> clients_map;
+std::pair<int, std::string> clients[MAX_CLIENTS]; // K->fd,V->name
+char buff[MAX_BUFF];                              // filled with newline values
+std::unordered_map<std::string, Client> clients_map; // K->name,V->Client
 void printClients();
+
 // function signatures
 void queue_client(int fd);
+void printClientMap();
 void handle_errors(const char *msg, int &arg);
 void broadcast_msg(int sender, char *msg, size_t len);
-void broadcast_connection(int new_client, char *msg);
+void broadcast_connection(int new_client, const char *msg);
 void get_client_details(int fd, int i, const char *username_buff);
 void client_disconnect(int fd, int index);
+int sanitize_port_number(int port_number);
 
-int main() {
+int main(int argc, char *argv[]) {
 
   // allow for the server to run on a given port through command-line arguments
+  if (argc != 2) {
+    std::cerr << "Expected a port number and got nothing!\n";
+    std::cout << "Using the default port " << DEFAULT_PORT << "\n";
+  } else {
+    port = sanitize_port_number(std::stoi(argv[1]));
+  }
+
   // create the server socket
   if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     handle_errors("Failed to create server socket", errno);
@@ -63,29 +74,27 @@ int main() {
   }
 
   // master server addrs
-  server_addr = {AF_INET, htons(PORT), INADDR_ANY, {0}};
+  server_addr = {AF_INET, htons(port), INADDR_ANY, {0}};
   sockaddr_len = sizeof(server_addr);
   // allows for socket to be reusable
   int opt = 1; // this option is only used for setting the server to be reusable
   if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt,
                  sizeof(opt)) != 0) {
     handle_errors("Failed to make server reusable", server_fd);
-  } else {
-    cout << "Successfully made server reusable" << endl;
+  } else [[likely]] {
+    cout << "Successfully made server reusable\n" << endl;
   }
 
   // bind the socket
   if (bind(server_fd, (const struct sockaddr *)&server_addr,
            sizeof(server_addr)) < 0) {
     handle_errors("Failed to bind socket to addr", server_fd);
-  } else {
-    cout << "Successfully binded socket to addr" << endl;
   }
 
   // listen to connections
   if (listen(server_fd, 3) < 0) {
     handle_errors("Failed to listen to connection", server_fd);
-  } else {
+  } else [[__likely__]] {
     char ip[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &(server_addr.sin_addr), ip, INET_ADDRSTRLEN);
     cout << "Server runnining on " << ip << ":" << ntohs(server_addr.sin_port)
@@ -104,7 +113,7 @@ int main() {
     // add client (child) socket file descriptors into the set
     for (int i = 0; i < MAX_CLIENTS; i++) {
       client_fd = clients[i].first;
-      clients[i].second = "";
+      /*clients[i].second = "";*/
       // looking for a valid client socket file description to add to add to
       if (client_fd > 0) {
         FD_SET(client_fd, &current_set);
@@ -145,16 +154,12 @@ int main() {
           cout << "Failed to read from incomming buffer " << bytes_read << endl;
         } else if (bytes_read == 0) {
           client_disconnect(client_fd, i);
-
-        } else if (buff[0] ==
-                   '!') /*Protocol for when a new client joins chat*/ {
+        }
+        /*Protocol for when a new client joins chat*/
+        else if (buff[0] == '!') {
           get_client_details(new_socket, i, buff);
-          clients[i].second = clients_map[new_socket].name;
-          cout << __LINE__ << ": Global Attempt\nName from Array->"
-               << clients[i].second << "\n";
-          broadcast_connection(new_socket, clients_map[new_socket].name);
+          broadcast_connection(new_socket, clients[i].second.c_str());
         } else {
-          cout << __LINE__ << " :name -> " << clients[i].second << "\n";
           broadcast_msg(client_fd, buff, bytes_read);
         }
       }
@@ -186,11 +191,18 @@ void broadcast_msg(int sender, char *msg, size_t len) {
   int bytes_sent = 0;
   msg[len] = '\0';
   for (int i = 0; i < MAX_CLIENTS; i++) {
+
     if (clients[i].first != sender && clients[i].first != 0) {
       char temp[MAX_BUFF];
-      size_t fd_user_len = strlen(clients_map[sender].name);
+      size_t fd_user_len = (clients[i].second.length());
+
       snprintf(temp, fd_user_len + strlen(msg) + 5, "[%s]: %s\n",
-               clients_map[sender].name, msg);
+               clients[i].second.c_str(), msg);
+
+      cout << __LINE__ << ": temp " << temp << '\n'
+           << ": fd_user_len " << fd_user_len << '\n'
+           << "msg " << msg << endl;
+
       temp[strlen(temp)] = '\0';
       bytes_sent = send(clients[i].first, temp, strlen(temp), 0);
       if (bytes_sent < 0)
@@ -205,7 +217,8 @@ void broadcast_msg(int sender, char *msg, size_t len) {
  * @param new_client the newest connected client on the server
  * @param msg message the server will broadcast to connected client
  */
-void broadcast_connection(int new_client, char *msg) {
+void broadcast_connection(int new_client, const char *msg) {
+
   getpeername(client_fd, (struct sockaddr *)&server_addr,
               (socklen_t *)&sockaddr_len);
   char ip[INET_ADDRSTRLEN];
@@ -283,15 +296,37 @@ void client_disconnect(int fd, int index) {
  */
 void get_client_details(int fd, int i, const char *username_buff) {
   if (clients[i].first == fd) {
-    Client c;
-    c.fd = fd;
-    std::copy(username_buff + 1, username_buff + strlen(username_buff), c.name);
-    clients_map[fd] = c;
-    clients[i].second = c.name;
-    /*std::cout << __FUNCTION__ << " Name -> " << clients[i].second << "\n";*/
+    // should now have an array of fd and usernames
+    string username(username_buff + 1, username_buff + strlen(username_buff));
+    clients[i].second = std::move(username);
+    cout << __PRETTY_FUNCTION__ << ": " << clients[i].second << endl;
+    cout << "username after move " << username << endl;
+
+    // Add these to our map
+    clients_map[username].fd = fd;
+    std::copy(username_buff + 1, username_buff + strlen(username_buff),
+              clients_map[username].name);
   }
 }
 
+/**
+ * @brief sanitises port number to be between 1024 and 65k
+ * @param port is the port number provided via command-line arguments
+ */
+int sanitize_port_number(int port_number) {
+  if (port_number < 1024) {
+    std::cerr << "Cannot Use Reservered Port Number\nReverting to using "
+                 "default server port :"
+              << DEFAULT_PORT << '\n';
+    return DEFAULT_PORT;
+  } else if (port_number > 65535) {
+    std::cerr << "Cannot Use port number greater than " << (65535)
+              << " wtf is wrong with you\n";
+    return DEFAULT_PORT;
+  }
+  port = port_number;
+  return port;
+}
 /**
  * @brief adds a new client to the client %dqueue
  * @param fd the client  file discriptor to be enqueued
@@ -316,14 +351,19 @@ void queue_client(int fd) {
       break;
     }
   }
-  // this is for debugging
 }
 
 void printClients() {
   for (int i = 0; i < client_count; i++) {
     cout << "Fd from array -> " << clients[i].first << "\n";
-    cout << "Name from array ->" << clients[i].second << "\n";
-    cout << "Name (map)= " << clients_map[clients[i].first].name << "\n";
+    cout << "Name from array ->" << clients[i].second.c_str() << "\n";
   }
   cout << '\n';
+}
+void printClientMap() {
+  for (auto &[K, V] : clients_map) {
+    std::cout << "Key ->" << K << " Value {" << V.fd << "," << V.name << "}"
+              << '\n';
+  }
+  cout << endl;
 }
