@@ -52,7 +52,7 @@ void broadcast_connection(int new_client, char *msg);
 void get_client_details(int fd, int i, const char *username_buff);
 void client_disconnect(int fd, int index);
 
-int main(int argc, char *argv[]) {
+int main() {
 
   // allow for the server to run on a given port through command-line arguments
   // create the server socket
