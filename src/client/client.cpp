@@ -107,6 +107,13 @@ void write_client_info() {
   if (send(socket_fd, name.c_str(), name.length(), 0) < 0) {
     cerr << "failed to send user name for server\n";
   }
+
+  // Receiving a welcome from the server
+  char recv_buff[1024] = {'\0'};
+  if (read(socket_fd, recv_buff, sizeof(recv_buff)) < 0) {
+    cerr << "failed to read welcome message from chat server\n";
+  }
+  cout << recv_buff; // comes with a '\0' attached
 }
 
 /**
@@ -151,13 +158,12 @@ void *send_msg(void *fd) {
 /**
  *@brief receives the messages from the server that were sent by other clients.
  *This function runs in it's own thread
- *@param fd is the file descriptor of the client once connected to the server
- */
+ *@param fd is the file descriptor of the client once connected to the serv*/
 void *receive_msg(void *fd) {
   int client_fd = *((int *)fd);
-  while (1) {
 
-    char recieve_buff[MSG_LEN + NAME_LEN];
+  char recieve_buff[MSG_LEN + NAME_LEN];
+  while (1) {
 
     int bytes_in = read(client_fd, recieve_buff, sizeof(recieve_buff));
     if (bytes_in < 0) {
@@ -176,7 +182,7 @@ void *receive_msg(void *fd) {
       }
       return nullptr;
     }
-    std::string recieve_str(recieve_buff, bytes_in);
+    /*std::string recieve_str(recieve_buff, bytes_in);*/
     cout << recieve_buff << endl;
     /*cout << "::type ";*/
     std::memset(recieve_buff, '\0',

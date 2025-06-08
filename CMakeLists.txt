@@ -12,8 +12,8 @@ add_executable(server ${CMAKE_SOURCE_DIR}/src/server/server.cpp)
 #Client executable
 add_executable(client ${CMAKE_SOURCE_DIR}/src/client/client.cpp)
 #compile with some debug symbols
-target_compile_options(server PRIVATE -Wall -Werror -Wextra -g -O0)
-target_compile_options(client PRIVATE -Wall -Werror -Wextra -g -O0)
+target_compile_options(server PRIVATE -Wall -Werror -Wextra -fno-inline -g -O0 )
+target_compile_options(client PRIVATE -Wall -Werror -Wextra -fno-inline -g -O0 )
 
 ##TUI
 # include(FetchContent)   # to fetch repos online 
