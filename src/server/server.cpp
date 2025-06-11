@@ -9,7 +9,6 @@
 #include <iostream>
 #include <netinet/in.h>
 #include <ostream>
-#include <print>
 #include <string.h>
 #include <string_view>
 #include <strings.h>
@@ -18,12 +17,9 @@
 #include <unistd.h>
 #include <unordered_map>
 using std::cout, std::cerr, std::endl;
-<<<<<<< Updated upstream
 using std::pair;
 using std::string, std::string_view;
-=======
-using std::string;
->>>>>>> Stashed changes
+
 constexpr int DEFAULT_PORT = 10000; // this is the default port if none is given
                                     // as a command-line arguments
 constexpr int MAX_CLIENTS = 256;
@@ -50,7 +46,6 @@ struct Client {
 };
 
 // containers
-<<<<<<< Updated upstream
 pair<int, std::string> clients[MAX_CLIENTS]; // K->fd,V->name
 char buff[MAX_BUFF] = {'\0'};                // filled with newline values
 std::unordered_map<std::string, Client> clients_map; // K->name,V->Client
@@ -58,15 +53,6 @@ std::unordered_map<std::string, Client> clients_map; // K->name,V->Client
 // function signatures
 void queue_client(int fd);
 void printClients();
-=======
-std::pair<int, std::string> clients[MAX_CLIENTS]; // K->fd,V->name
-char buff[MAX_BUFF];                              // filled with newline values
-std::unordered_map<std::string, Client> clients_map; // K->name,V->Client
-void printClients();
-
-// function signatures
-void queue_client(int fd);
->>>>>>> Stashed changes
 void printClientMap();
 void handle_errors(const char *msg, int &arg);
 void broadcast_msg(int sender, char *msg, size_t len);
@@ -74,14 +60,11 @@ void broadcast_connection(int new_client, const char *msg);
 void get_client_details(int fd, int i, const char *username_buff);
 void client_disconnect(int fd, int index);
 int sanitize_port_number(int port_number);
-<<<<<<< Updated upstream
 bool find_word_with_target(string_view target_symbol, string_view msg,
                            size_t &pos);
 void send_DM(int sender_fd, std::string_view str_view, size_t begin);
 void trim_whitespace(string &str);
 int find_sender_name(int sender_fd);
-=======
->>>>>>> Stashed changes
 
 int main(int argc, char *argv[]) {
 
@@ -92,10 +75,7 @@ int main(int argc, char *argv[]) {
   } else {
     port = sanitize_port_number(std::stoi(argv[1]));
   }
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
   // create the server socket
   if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     handle_errors("Failed to create server socket", errno);
@@ -190,7 +170,6 @@ int main(int argc, char *argv[]) {
           get_client_details(new_socket, i, buff);
           broadcast_connection(new_socket, clients[i].second.c_str());
         } else {
-<<<<<<< Updated upstream
           /*Remove this branch. Be as branch-less as possible*/
           size_t pos = 0;
           if (find_word_with_target(dm_symbol, buff, pos)) {
@@ -201,9 +180,6 @@ int main(int argc, char *argv[]) {
           } else {
             broadcast_msg(client_fd, buff, bytes_read);
           }
-=======
-          broadcast_msg(client_fd, buff, bytes_read);
->>>>>>> Stashed changes
         }
       }
       // clear out the buffer
@@ -263,15 +239,7 @@ void broadcast_msg(int sender, char *msg, size_t len) {
       size_t fd_user_len = (clients[i].second.length());
 
       snprintf(temp, fd_user_len + strlen(msg) + 5, "[%s]: %s\n",
-<<<<<<< Updated upstream
                clients[pos].second.c_str(), msg);
-=======
-               clients[i].second.c_str(), msg);
-
-      cout << __LINE__ << ": temp " << temp << '\n'
-           << ": fd_user_len " << fd_user_len << '\n'
-           << "msg " << msg << endl;
->>>>>>> Stashed changes
 
       temp[strlen(temp)] = '\0';
       bytes_sent = send(clients[i].first, temp, strlen(temp), 0);
@@ -371,7 +339,6 @@ void get_client_details(int fd, int i, const char *username_buff) {
   if (clients[i].first == fd) {
     // should now have an array of fd and usernames
     string username(username_buff + 1, username_buff + strlen(username_buff));
-<<<<<<< Updated upstream
     trim_whitespace(username);
     // Add these to our map
     clients_map[username].fd = fd;
@@ -388,16 +355,6 @@ void get_client_details(int fd, int i, const char *username_buff) {
     }
     cout << "Welcomed " << username << "[" << clients[i].first << "]!\n";
     clients[i].second = std::move(username);
-=======
-    clients[i].second = std::move(username);
-    cout << __PRETTY_FUNCTION__ << ": " << clients[i].second << endl;
-    cout << "username after move " << username << endl;
-
-    // Add these to our map
-    clients_map[username].fd = fd;
-    std::copy(username_buff + 1, username_buff + strlen(username_buff),
-              clients_map[username].name);
->>>>>>> Stashed changes
   }
 }
 
@@ -448,11 +405,7 @@ void queue_client(int fd) {
 void printClients() {
   for (int i = 0; i < client_count; i++) {
     cout << "Fd from array -> " << clients[i].first << "\n";
-<<<<<<< Updated upstream
     cout << "Name from array ->" << clients[i].second << "\n";
-=======
-    cout << "Name from array ->" << clients[i].second.c_str() << "\n";
->>>>>>> Stashed changes
   }
   cout << '\n';
 }
@@ -463,7 +416,6 @@ void printClientMap() {
   }
   cout << endl;
 }
-<<<<<<< Updated upstream
 
 bool find_word_with_target(string_view target_symbol, string_view msg,
                            size_t &pos) {
@@ -613,5 +565,3 @@ void trim_whitespace(string &str) {
   cout << __LINE__ << ": Trimmed string <" << str << ">\n";
   return;
 }
-=======
->>>>>>> Stashed changes
