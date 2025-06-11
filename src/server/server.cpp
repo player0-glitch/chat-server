@@ -464,6 +464,7 @@ void send_DM(int sender_fd, string_view str_view, size_t begin) {
     end = str_view.length();
 
   int sender_pos = find_sender_name(sender_fd);
+  cout << "Senderpos " << sender_pos << '\n';
   string user((str_view.substr(begin + 1, end)));
 
   // make sure we dont have a 'collision' in finding the correct username
