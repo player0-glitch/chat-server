@@ -35,7 +35,7 @@ int new_socket = -1;
 int highest_fd = -1;
 int sock_activity = 0;
 int bytes_read = -1;
-int client_count = 0;
+int client_count=0;
 int port = 0;
 // holds all out active socker activity
 fd_set master_set, current_set;
@@ -549,6 +549,7 @@ int find_sender_name(int sender_fd) {
 };
 void trim_whitespace(string &str) {
   using std::isspace;
+  
   cout << __PRETTY_FUNCTION__ << "::\n";
   size_t front = 0;
   while (front < str.size() &&

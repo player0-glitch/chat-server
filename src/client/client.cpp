@@ -1,7 +1,5 @@
 #include <algorithm>
 #include <arpa/inet.h>
-#include <csignal>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
@@ -25,8 +23,6 @@ int socket_fd = -1;
 sockaddr_in address;
 unsigned int port = 0;
 char ip[INET_ADDRSTRLEN]; // 16 -> length of an ip address
-pthread_t send_thread;
-pthread_t receive_thread;
 
 // containers
 std::string user_name(NAME_LEN, '\0');
@@ -45,6 +41,8 @@ void *receive_msg(void *fd);
 ////////////////////////////////////////////////
 
 int main(int argc, char *argv[]) {
+pthread_t send_thread;
+pthread_t receive_thread;
 
   // argc is the number of command line arguments
   if (argc != 4) {
@@ -79,7 +77,7 @@ int main(int argc, char *argv[]) {
 
   pthread_join(send_thread, nullptr);
   pthread_join(receive_thread, nullptr);
-
+  
   close(socket_fd); // gracefully close the socket
   return 0;
 }
@@ -178,7 +176,7 @@ void *receive_msg(void *fd) {
         cerr << "Failed to detach itself\n";
       } else {
         cout << "Client Thread should have detached itself\n";
-        pthread_exit(nullptr); // should do what #147 is supposed
+        pthread_exit(nullptr); // should do what is supposed
       }
       return nullptr;
     }
