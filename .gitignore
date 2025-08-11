@@ -1,5 +1,9 @@
 .cache/
 build/
 src/timer.cpp
+#These aren't ready whatsoever to even be tracked
+src/client/Scroller.cpp 
+src/client/clientUI.cpp
+##
 test/
 note.txt
