@@ -1,10 +1,10 @@
+//Lol i didn't write any of this, just yanked an example from the docs
 #include "../include/Scroller.h"
 
 #include <algorithm>                          // for max, min
 #include <ftxui/component/component_base.hpp> // for Component, ComponentBase
 #include <ftxui/component/event.hpp> // for Event, Event::ArrowDown, Event::ArrowUp, Event::End, Event::Home, Event::PageDown, Event::PageUp
 #include <utility>                   // for move
-
 #include <ftxui/component/component.hpp> // for Make
 #include <ftxui/component/mouse.hpp> // for Mouse, Mouse::WheelDown, Mouse::WheelUp
 #include <ftxui/dom/deprecated.hpp> // for text
@@ -57,7 +57,7 @@ private:
     if (event == Event::Home)
       selected_ = 0;
     if (event == Event::End)
-      selected_ = size_;
+    selected_ = size_;
 
     selected_ = std::max(0, std::min(size_ - 1, selected_));
     return selected_old != selected_;

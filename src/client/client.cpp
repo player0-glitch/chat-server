@@ -1,10 +1,9 @@
 #include <algorithm>
 #include <arpa/inet.h>
-#include <csignal>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <fcntl.h>
+#include <errno.h>
+// #include <fcntl.h>
 #include <iostream>
 #include <netinet/in.h>
 #include <poll.h>
@@ -25,8 +24,6 @@ int socket_fd = -1;
 sockaddr_in address;
 unsigned int port = 0;
 char ip[INET_ADDRSTRLEN]; // 16 -> length of an ip address
-pthread_t send_thread;
-pthread_t receive_thread;
 
 // containers
 std::string user_name(NAME_LEN, '\0');
@@ -38,6 +35,7 @@ void help(int argc);
 void handle_errors(const char *msg, int &arg);
 void write_client_info();
 void disconnect();
+bool is_socket_connected(int fd);
 
 ////these will run on their own seperate threads
 void *send_msg(void *fd);
@@ -45,6 +43,9 @@ void *receive_msg(void *fd);
 ////////////////////////////////////////////////
 
 int main(int argc, char *argv[]) {
+  pthread_t send_thread;
+
+  pthread_t receive_thread;
 
   // argc is the number of command line arguments
   if (argc != 4) {
@@ -80,7 +81,10 @@ int main(int argc, char *argv[]) {
   pthread_join(send_thread, nullptr);
   pthread_join(receive_thread, nullptr);
 
-  close(socket_fd); // gracefully close the socket
+  if (!is_socket_connected(socket_fd)) {
+    close(socket_fd); // gracefully close the socket
+    cout << "gracefully close the socket";
+  }
   return 0;
 }
 
@@ -107,6 +111,13 @@ void write_client_info() {
   if (send(socket_fd, name.c_str(), name.length(), 0) < 0) {
     cerr << "failed to send user name for server\n";
   }
+
+  // Receiving a welcome from the server
+  char recv_buff[1024] = {'\0'};
+  if (read(socket_fd, recv_buff, sizeof(recv_buff)) < 0) {
+    cerr << "failed to read welcome message from chat server\n";
+  }
+  cout << recv_buff; // comes with a '\0' attached
 }
 
 /**
@@ -129,13 +140,13 @@ void handle_errors(const char *msg, int &arg) {
 void *send_msg(void *fd) {
   int client_fd = *((int *)fd);
   std::string message(MSG_LEN, '\0');
-  std::string dettach = "!q";
+  std::string dettach_symbol = "!q";
   while (1) {
     // get lient input
     std::getline(std::cin, message);
 
     // check for if the user wants to disconnect
-    if (message.find(dettach) != std::string::npos) {
+    if (message.find(dettach_symbol) != std::string::npos) {
       disconnect();
       return nullptr;
     }
@@ -151,13 +162,12 @@ void *send_msg(void *fd) {
 /**
  *@brief receives the messages from the server that were sent by other clients.
  *This function runs in it's own thread
- *@param fd is the file descriptor of the client once connected to the server
- */
+ *@param fd is the file descriptor of the client once connected to the serv*/
 void *receive_msg(void *fd) {
   int client_fd = *((int *)fd);
-  while (1) {
 
-    char recieve_buff[MSG_LEN + NAME_LEN];
+  char recieve_buff[MSG_LEN + NAME_LEN];
+  while (1) {
 
     int bytes_in = read(client_fd, recieve_buff, sizeof(recieve_buff));
     if (bytes_in < 0) {
@@ -172,13 +182,12 @@ void *receive_msg(void *fd) {
         cerr << "Failed to detach itself\n";
       } else {
         cout << "Client Thread should have detached itself\n";
-        pthread_exit(nullptr); // should do what #147 is supposed
+        pthread_exit(nullptr); // should do what is supposed
       }
       return nullptr;
     }
-    std::string recieve_str(recieve_buff, bytes_in);
+    /*std::string recieve_str(recieve_buff, bytes_in);*/
     cout << recieve_buff << endl;
-    /*cout << "::type ";*/
     std::memset(recieve_buff, '\0',
                 sizeof(recieve_buff)); // this is supposed to just set
                                        // everything in the buffer to 'nothing'
@@ -192,4 +201,23 @@ void *receive_msg(void *fd) {
 void disconnect() {
   close(socket_fd);
   exit(0);
+}
+
+/**
+ * @brief checks the client's socket before (gracefully) closing the socket
+ */
+bool is_socket_connected(int fd) {
+  char dump_buf;
+  // if any of these flags are set then we know whatever we were connected to is
+  // not disconnected
+  if (recv(fd, &dump_buf, 1, MSG_PEEK | MSG_DONTWAIT) == 0)
+    return false; // socket is already closed
+
+  else {
+    if (errno == EWOULDBLOCK || errno == EAGAIN) {
+      // still connected
+      return true;
+    }
+    return false;
+  }
 }
