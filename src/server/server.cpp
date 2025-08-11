@@ -9,6 +9,7 @@
 #include <iostream>
 #include <netinet/in.h>
 #include <ostream>
+#include <print>
 #include <string.h>
 #include <string_view>
 #include <strings.h>
@@ -16,8 +17,9 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <unordered_map>
-using std::cout, std::cerr, std::endl;
-using std::pair;
+// using std::cout, std::cerr, std::endl;
+using std::pair, std::cerr;
+using std::print, std::println;
 using std::string, std::string_view;
 
 constexpr int DEFAULT_PORT = 10000; // this is the default port if none is given
@@ -35,7 +37,7 @@ int new_socket = -1;
 int highest_fd = -1;
 int sock_activity = 0;
 int bytes_read = -1;
-int client_count=0;
+int client_count = 0;
 int port = 0;
 // holds all out active socker activity
 fd_set master_set, current_set;
@@ -62,7 +64,7 @@ void client_disconnect(int fd, int index);
 int sanitize_port_number(int port_number);
 bool find_word_with_target(string_view target_symbol, string_view msg,
                            size_t &pos);
-void send_DM(int sender_fd, std::string_view str_view, size_t begin);
+void send_DM(int sender_fd, std::string_view buf_view, size_t begin);
 void trim_whitespace(string &str);
 int find_sender_name(int sender_fd);
 
@@ -80,7 +82,7 @@ int main(int argc, char *argv[]) {
   if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     handle_errors("Failed to create server socket", errno);
   } else {
-    cout << "Successfully made server socket" << endl;
+    println("Successfully made server socket");
   }
 
   // master server addrs
@@ -92,7 +94,7 @@ int main(int argc, char *argv[]) {
                  sizeof(opt)) != 0) {
     handle_errors("Failed to make server reusable", server_fd);
   } else [[likely]] {
-    cout << "Successfully made server reusable\n" << endl;
+    println("Successfully made server reusable");
   }
 
   // bind the socket
@@ -107,14 +109,14 @@ int main(int argc, char *argv[]) {
   } else [[__likely__]] {
     char ip[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &(server_addr.sin_addr), ip, INET_ADDRSTRLEN);
-    cout << "Server runnining on " << ip << ":" << ntohs(server_addr.sin_port)
-         << "\n\n";
+    println("Server running on {}:{}", ip, ntohs(server_addr.sin_port));
   }
   // have a fd set for allowing multiple clients
   FD_ZERO(&master_set);
   FD_SET(server_fd, &master_set); // server is always on top
   const char *quit_symbol = "!q";
   const char *dm_symbol = "@";
+
   while (1) {
     // because the select function is destructive in that it will change/destroy
     // file descriptor sets everytime you use it
@@ -134,13 +136,12 @@ int main(int argc, char *argv[]) {
         highest_fd = client_fd;
       }
     }
-
     // Select can only read file descriptor less than 1024 (poll doesn't have
     // this weakness)
     sock_activity =
         select(highest_fd + 1, &current_set, nullptr, nullptr, nullptr);
     if (sock_activity < 0) {
-      cerr << "Failed to get socket acitiviy " << strerror(errno) << endl;
+      cerr << "Failed to get socket acitiviy " << strerror(errno) << std::endl;
     }
 
     // there is some activity happening on the server's socket
@@ -161,7 +162,7 @@ int main(int argc, char *argv[]) {
         // handle client disconneting from the server
         bytes_read = read(client_fd, buff, sizeof(buff));
         if (bytes_read < 0) {
-          cout << "Failed to read from incomming buffer " << bytes_read << endl;
+          println("Failed to read from incoming buffer {}", bytes_read);
         } else if (bytes_read == 0) {
           client_disconnect(client_fd, i);
         }
@@ -244,7 +245,7 @@ void broadcast_msg(int sender, char *msg, size_t len) {
       temp[strlen(temp)] = '\0';
       bytes_sent = send(clients[i].first, temp, strlen(temp), 0);
       if (bytes_sent < 0)
-        cout << "Failed to broadcast messages " << strerror(errno) << endl;
+        println("Failed to broadcast messages {}", strerror(errno));
     }
   }
 }
@@ -268,7 +269,7 @@ void broadcast_connection(int new_client, const char *msg) {
   unsigned long n = snprintf(send_buff, sizeof(send_buff),
                              "++++++++%s joined chat++++++++\n", msg);
   if (n >= sizeof(send_buff)) {
-    cout << "Overflow could occur\n";
+    println("Buffer Overflow could happen over here");
   } else {
     for (int i = 0; i < MAX_CLIENTS; i++) {
       // only announce to connected clients
@@ -290,8 +291,8 @@ void client_disconnect(int fd, int index) {
   char ip[INET_ADDRSTRLEN];
   inet_ntop(AF_INET, &(server_addr.sin_addr), ip, INET_ADDRSTRLEN);
 
-  cout << "Client Disconnected IP:" << ip << ":" << ntohs(server_addr.sin_port)
-       << endl;
+  println("Client Disconnected IP {}:{}", ip, ntohs(server_addr.sin_port));
+
   clients[index].first = 0; // removing client from lineup
   clients[index].second = "";
   // Reorder the clients queue
@@ -322,7 +323,7 @@ void client_disconnect(int fd, int index) {
   temp_count--;
 
   client_count = temp_count;
-  cout << "Disconnected List\n";
+  println("Disconnected client ");
   printClients();
   close(fd);
   FD_CLR(fd, &current_set); // remove socket from set
@@ -334,7 +335,6 @@ void client_disconnect(int fd, int index) {
  * @param username_buff client user name with delimeter
  */
 void get_client_details(int fd, int i, const char *username_buff) {
-  /*cout << __PRETTY_FUNCTION__ << "::\n";*/
   using std::copy;
   if (clients[i].first == fd) {
     // should now have an array of fd and usernames
@@ -347,13 +347,14 @@ void get_client_details(int fd, int i, const char *username_buff) {
 
     // Send welcome message to the newly connected client
     string welcome_msg = "Welcome to the Chat " + username + "!\n";
+
     if (send(fd, welcome_msg.c_str(),
              strlen(welcome_msg.c_str()) + strlen(username.c_str()),
 
              0) < 0) {
       cerr << "Failed to send welcome message to newly connected client\n";
     }
-    cout << "Welcomed " << username << "[" << clients[i].first << "]!\n";
+    println("{}, has joined the chat", username);
     clients[i].second = std::move(username);
   }
 }
@@ -404,19 +405,27 @@ void queue_client(int fd) {
 
 void printClients() {
   for (int i = 0; i < client_count; i++) {
-    cout << "Fd from array -> " << clients[i].first << "\n";
-    cout << "Name from array ->" << clients[i].second << "\n";
+    println("Fd from array -> {}", clients[i].first);
+    println("Name from array ->{}", clients[i].second);
   }
-  cout << '\n';
+  println();
 }
 void printClientMap() {
   for (auto &[K, V] : clients_map) {
-    std::cout << "Key ->" << K << " Value {" << V.fd << "," << V.name << "}"
-              << '\n';
+    std::println("Key -->{} Value [{},{}]", K, V.fd, V.name);
   }
-  cout << endl;
+  println();
 }
 
+/**
+ * @brief the word with the given target_symbol
+ * this method used to find the word with either '@' or '!q' which have defined
+ * behaviour in this program
+ * @param target_symbol is the symbol that will be targeted by the method
+ * @param msg is the string that will be searched
+ * @param pos this is only used for 'send_DM' method to make the search string
+ * shorter
+ */
 bool find_word_with_target(string_view target_symbol, string_view msg,
                            size_t &pos) {
 
@@ -434,14 +443,14 @@ bool find_word_with_target(string_view target_symbol, string_view msg,
     /*cout << "found target_symbol at " << at << " which is [" << msg[at]*/
     /*<< "]\n";*/
     pos = at; // this will mark the beginning of the search
+    std::println("Found Target as {}", target_symbol);
     return true;
   }
   return false;
 }
 
 void send_DM(int sender_fd, string_view str_view, size_t begin) {
-  cout << __PRETTY_FUNCTION__ << "::" << endl;
-
+  println("{}::", __PRETTY_FUNCTION__);
   size_t end = 0;
   int index = begin + 1;
   size_t str_length = MAX_USR_LEN;
@@ -450,7 +459,7 @@ void send_DM(int sender_fd, string_view str_view, size_t begin) {
     str_length = str_view.length();
 
   for (size_t i = index; i < str_length; i++) {
-    cout << str_view.at(i) << endl;
+    println("{}", str_view.at(i));
     if (!std::isalnum(static_cast<unsigned char>(str_view.at(i))) &&
         !std::ispunct(static_cast<unsigned char>(str_view.at(i)))) {
       end = i; // if this is only assigned at the end of the loop then we've hit
@@ -464,22 +473,29 @@ void send_DM(int sender_fd, string_view str_view, size_t begin) {
     end = str_view.length();
 
   int sender_pos = find_sender_name(sender_fd);
-  cout << "Senderpos " << sender_pos << '\n';
+  println("Senderpos->{}", sender_pos);
+
+  println("Begin+1-->{} \tEnd-->{}", (begin + 1), end);
+  print("Length of string being viewed {}", str_view.length());
+
   string user((str_view.substr(begin + 1, end)));
 
   // make sure we dont have a 'collision' in finding the correct username
-
   auto c = clients_map.find(user);
-  cout << __LINE__ << ": c->second->" << c->second.name << "\n";
-  while (c->second.name == clients[sender_pos].second)
+  println("c->second-> (user found) {}", c->second.name);
+  while (c->second.name == clients[sender_pos].second) {
     c = clients_map.find(user);
+    println("Currently searching for the user to dm");
+  }
 
   trim_whitespace(user);
+
+  // This requires C++20 and above
   if (clients_map.contains(user)) {
-    cout << __LINE__ << ": Recepient found\n"
-         << "FD->" << c->second.fd << "\nName->" << c->second.name << endl;
-    cout << __LINE__ << ": DM to send "
-         << str_view.substr(end, str_view.length()) << "\n::\n";
+    println("{}: Recepient found ", __LINE__);
+    println("FD-->{}\nName -->{}", c->second.fd, c->second.name);
+    println("{}: DM to send -->{}", __LINE__,
+            str_view.substr(end, str_view.length()));
     auto create_DM = [&](string_view str_v) {
       // take the whole string and remove the @[username]
       string start = "";
@@ -487,33 +503,32 @@ void send_DM(int sender_fd, string_view str_view, size_t begin) {
         start = str_v.substr(0, begin - 1);
       else
         start = "";
-      cout << __LINE__ << ": First part of DM->" << start << endl;
+      println("{}: First part of DM->{}", __LINE__, start);
       string rest = str_v.substr(end, str_v.size()).data();
-      cout << __LINE__ << ": Last part of DM->" << rest << endl;
+      println("{}: Last part of DM-->{}", __LINE__, rest);
       return start + rest;
     };
 
     string DM = create_DM(str_view);
 
-    cout << "DM After processing ->" << DM << '\n';
+    println("DM After processing -->{}", DM);
     char char_buff[MAX_BUFF]; //= {'\0'};
 
-    cout << __LINE__ << ": Sender name ->" << clients[sender_pos].second << "\n"
-         << "Receiver name ->" << user << "\n";
+    println("Sender name -->{}\n Receiver name -->{}",
+            clients[sender_pos].second, user);
     std::snprintf(
         char_buff,
         //(dm length+sender_name lenght+ string literal length) all as c strings
         strlen(DM.c_str()) + strlen(clients[sender_pos].second.c_str()) + 11,
         "[from: %s ]:%s", clients[sender_pos].second.c_str(), DM.c_str());
-    cout << __LINE__ << ": CHAR_BUFF w dm->" << char_buff << endl;
+    println("CHAR_BUFF w dm--> {}", char_buff);
 
     // Arttempt to send the dm
     if (send(c->second.fd, char_buff, strlen(char_buff), 0) < 0) {
       std::cerr << "Failed to send DM\n";
     } else {
-      cout << __LINE__ << ": " << c->second.name
-           << " Should have received the dm\n"
-           << char_buff << endl;
+      println("{}:  Should have received the dm-->{}", c->second.name,
+              char_buff);
     }
 
     std::memset(char_buff, '\0', sizeof(char_buff));
@@ -528,29 +543,37 @@ void send_DM(int sender_fd, string_view str_view, size_t begin) {
 int find_sender_name(int sender_fd) {
   using std::pair;
   int start = 0;
-  int end = client_count;
+  int end = 0;
+
+  // the chat is empty avoid this computation
+  if (client_count != 0)
+    end = client_count;
+
+  println("{}:: Searching to find username", __PRETTY_FUNCTION__);
   for (int i = start; i < end; i++) {
     // using the forward pointer
-    if (clients[i].first != sender_fd)
+    if (clients[start].first != sender_fd) {
       start++;
-    else {
+      println("Start {} \nStart Value-->{}", start, clients[start].first);
+    } else {
       start = i;
       return start;
     }
     // using the backwards pointer
-    if (clients[end - 1].first != sender_fd)
+    if (clients[end - 1].first != sender_fd) {
       end--;
-    else {
+      println("End {} \n End Value-->{}", end, clients[end].first);
+    } else {
       end = i;
       return end;
     }
   }
-  return -1;
+  return -1; // user was never part of the chat
 };
+
 void trim_whitespace(string &str) {
   using std::isspace;
-  
-  cout << __PRETTY_FUNCTION__ << "::\n";
+  std::println("{}", __PRETTY_FUNCTION__);
   size_t front = 0;
   while (front < str.size() &&
          isspace(static_cast<unsigned char>(str.at(front)))) {
@@ -564,6 +587,6 @@ void trim_whitespace(string &str) {
   if (back == front)
     return; // because wtf;
   str = str.substr(front, back - front);
-  cout << __LINE__ << ": Trimmed string <" << str << ">\n";
+  std::println("TRIM --> {}", str);
   return;
 }
