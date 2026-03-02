@@ -17,9 +17,9 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <unordered_map>
-// using std::cout, std::cerr, std::endl;
+
 using std::pair, std::cerr;
-using std::print, std::println;
+using std::println;
 using std::string, std::string_view;
 
 constexpr int DEFAULT_PORT = 10000; // this is the default port if none is given
@@ -39,17 +39,23 @@ int sock_activity = 0;
 int bytes_read = -1;
 int client_count = 0;
 int port = 0;
+
+const char *quit_symbol = "!q";
+const char *dm_symbol = "@";
+
 // holds all out active socker activity
 fd_set master_set, current_set;
+
 struct Client {
   int fd;
   char name[MAX_USR_LEN] = {'\0'};
-  char password[MAX_USR_LEN]; // idk if i'll ever implement this
+  char password[MAX_USR_LEN]; // I don't think I'll ever put myself through
+                              // implementing this
 };
 
 // containers
-pair<int, std::string> clients[MAX_CLIENTS]; // K->fd,V->name
-char buff[MAX_BUFF] = {'\0'};                // filled with newline values
+pair<int, std::string> clients[MAX_CLIENTS];         // K->fd,V->name
+char buff[MAX_BUFF] = {'\0'};                        // filled with empty values
 std::unordered_map<std::string, Client> clients_map; // K->name,V->Client
 
 // function signatures
@@ -64,9 +70,7 @@ void client_disconnect(int fd, int index);
 int sanitize_port_number(int port_number);
 bool find_word_with_target(string_view target_symbol, string_view msg,
                            size_t &pos);
-void send_DM(int sender_fd, std::string_view buf_view, size_t begin);
 void trim_whitespace(string &str);
-int find_sender_name(int sender_fd);
 
 int main(int argc, char *argv[]) {
 
@@ -114,8 +118,6 @@ int main(int argc, char *argv[]) {
   // have a fd set for allowing multiple clients
   FD_ZERO(&master_set);
   FD_SET(server_fd, &master_set); // server is always on top
-  const char *quit_symbol = "!q";
-  const char *dm_symbol = "@";
 
   while (1) {
     // because the select function is destructive in that it will change/destroy
@@ -147,7 +149,7 @@ int main(int argc, char *argv[]) {
     // there is some activity happening on the server's socket
     if (FD_ISSET(server_fd, &current_set)) {
 
-      /* it's either a new connection hence accept it*/
+      /* it's either a new connection hence accept it...*/
       if ((new_socket = accept(server_fd, (struct sockaddr *)&server_addr,
                                (socklen_t *)&sockaddr_len)) < 0) {
         handle_errors("Failed to accept new connection", server_fd);
@@ -155,7 +157,8 @@ int main(int argc, char *argv[]) {
         queue_client(new_socket);
       }
     }
-    /*or some I/O activity like writing to or reading from some other socket*/
+    /*...or some I/O activity like writing to or reading from some other
+     * socket*/
     for (int i = 0; i < MAX_CLIENTS; i++) {
       client_fd = clients[i].first;
       if (FD_ISSET(client_fd, &current_set)) {
@@ -173,10 +176,8 @@ int main(int argc, char *argv[]) {
         } else {
           /*Remove this branch. Be as branch-less as possible*/
           size_t pos = 0;
-          if (find_word_with_target(dm_symbol, buff, pos)) {
-            /*cout << __LINE__ << ": Pos Val-> " << pos << endl;*/
-            send_DM(client_fd, buff, pos);
-          } else if (find_word_with_target(quit_symbol, buff, pos)) {
+
+          if (find_word_with_target(quit_symbol, buff, pos)) {
             client_disconnect(client_fd, i);
           } else {
             broadcast_msg(client_fd, buff, bytes_read);
@@ -231,7 +232,7 @@ void broadcast_msg(int sender, char *msg, size_t len) {
       break; // there's no need to keep search, we've found our user
     }
   }
-  // DO the actual broadcasting
+  // DO the actual broadcasting of client messages
   for (int i = 0; i < MAX_CLIENTS; i++) {
 
     if (clients[i].first != sender && clients[i].first != 0) {
@@ -296,7 +297,6 @@ void client_disconnect(int fd, int index) {
   clients[index].first = 0; // removing client from lineup
   clients[index].second = "";
   // Reorder the clients queue
-  //*Cursor should only exist for valid connectinos */
   int temp_count = client_count;
 
   for (int i = 0; i < client_count; i++) {
@@ -394,10 +394,7 @@ void queue_client(int fd) {
   for (int i = client_count; i < MAX_CLIENTS; i++) {
     if (clients[i].first == 0) {
       clients[i].first = fd;
-      /*clients_map[i].name=*/
       client_count++;
-      /*std::cout << __FUNCTION__ << ":" << __LINE__ << " Client Count "*/
-      /*<< client_count << " FD: " << fd << endl;*/
       break;
     }
   }
@@ -410,6 +407,7 @@ void printClients() {
   }
   println();
 }
+
 void printClientMap() {
   for (auto &[K, V] : clients_map) {
     std::println("Key -->{} Value [{},{}]", K, V.fd, V.name);
@@ -440,136 +438,12 @@ bool find_word_with_target(string_view target_symbol, string_view msg,
   // npos is a property so it this context it should return index of our
   // found target
   if (at != string_view::npos) {
-    /*cout << "found target_symbol at " << at << " which is [" << msg[at]*/
-    /*<< "]\n";*/
     pos = at; // this will mark the beginning of the search
     std::println("Found Target as {}", target_symbol);
     return true;
   }
   return false;
 }
-
-void send_DM(int sender_fd, string_view str_view, size_t begin) {
-  println("{}::", __PRETTY_FUNCTION__);
-  size_t end = 0;
-  int index = begin + 1;
-  size_t str_length = MAX_USR_LEN;
-
-  if (str_view.length() < MAX_USR_LEN)
-    str_length = str_view.length();
-
-  for (size_t i = index; i < str_length; i++) {
-    println("{}", str_view.at(i));
-    if (!std::isalnum(static_cast<unsigned char>(str_view.at(i))) &&
-        !std::ispunct(static_cast<unsigned char>(str_view.at(i)))) {
-      end = i; // if this is only assigned at the end of the loop then we've hit
-      break; // we're only interested in the first whitespace after the username
-    }
-    // a null char and so the last index is the last character of the
-    // username
-  }
-
-  if (end == 0) // for when the username is the last thing in the message
-    end = str_view.length();
-
-  int sender_pos = find_sender_name(sender_fd);
-  println("Senderpos->{}", sender_pos);
-
-  println("Begin+1-->{} \tEnd-->{}", (begin + 1), end);
-  print("Length of string being viewed {}", str_view.length());
-
-  string user((str_view.substr(begin + 1, end)));
-
-  // make sure we dont have a 'collision' in finding the correct username
-  auto c = clients_map.find(user);
-  println("c->second-> (user found) {}", c->second.name);
-  while (c->second.name == clients[sender_pos].second) {
-    c = clients_map.find(user);
-    println("Currently searching for the user to dm");
-  }
-
-  trim_whitespace(user);
-
-  // This requires C++20 and above
-  if (clients_map.contains(user)) {
-    println("{}: Recepient found ", __LINE__);
-    println("FD-->{}\nName -->{}", c->second.fd, c->second.name);
-    println("{}: DM to send -->{}", __LINE__,
-            str_view.substr(end, str_view.length()));
-    auto create_DM = [&](string_view str_v) {
-      // take the whole string and remove the @[username]
-      string start = "";
-      if (begin != 0) // otherwise you get an integer Overflow trust me
-        start = str_v.substr(0, begin - 1);
-      else
-        start = "";
-      println("{}: First part of DM->{}", __LINE__, start);
-      string rest = str_v.substr(end, str_v.size()).data();
-      println("{}: Last part of DM-->{}", __LINE__, rest);
-      return start + rest;
-    };
-
-    string DM = create_DM(str_view);
-
-    println("DM After processing -->{}", DM);
-    char char_buff[MAX_BUFF]; //= {'\0'};
-
-    println("Sender name -->{}\n Receiver name -->{}",
-            clients[sender_pos].second, user);
-    std::snprintf(
-        char_buff,
-        //(dm length+sender_name lenght+ string literal length) all as c strings
-        strlen(DM.c_str()) + strlen(clients[sender_pos].second.c_str()) + 11,
-        "[from: %s ]:%s", clients[sender_pos].second.c_str(), DM.c_str());
-    println("CHAR_BUFF w dm--> {}", char_buff);
-
-    // Arttempt to send the dm
-    if (send(c->second.fd, char_buff, strlen(char_buff), 0) < 0) {
-      std::cerr << "Failed to send DM\n";
-    } else {
-      println("{}:  Should have received the dm-->{}", c->second.name,
-              char_buff);
-    }
-
-    std::memset(char_buff, '\0', sizeof(char_buff));
-    user.erase();
-  } else {
-    std::cerr << "User does not exist in the room\n";
-  }
-
-  /*cout << "Fd to send to->" << c.fd << "\nRecepient->" << c.name << "\n";*/
-}
-
-int find_sender_name(int sender_fd) {
-  using std::pair;
-  int start = 0;
-  int end = 0;
-
-  // the chat is empty avoid this computation
-  if (client_count != 0)
-    end = client_count;
-
-  println("{}:: Searching to find username", __PRETTY_FUNCTION__);
-  for (int i = start; i < end; i++) {
-    // using the forward pointer
-    if (clients[start].first != sender_fd) {
-      start++;
-      println("Start {} \nStart Value-->{}", start, clients[start].first);
-    } else {
-      start = i;
-      return start;
-    }
-    // using the backwards pointer
-    if (clients[end - 1].first != sender_fd) {
-      end--;
-      println("End {} \n End Value-->{}", end, clients[end].first);
-    } else {
-      end = i;
-      return end;
-    }
-  }
-  return -1; // user was never part of the chat
-};
 
 void trim_whitespace(string &str) {
   using std::isspace;
