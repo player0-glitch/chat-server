@@ -22,8 +22,8 @@ using std::pair, std::cerr;
 using std::println;
 using std::string, std::string_view;
 
-constexpr int DEFAULT_PORT = 10000; // this is the default port if none is given
-                                    // as a command-line arguments
+constexpr int DEFAULT_PORT = 6969; // this is the default port if none is given
+                                   // as a command-line arguments
 constexpr int MAX_CLIENTS = 256;
 constexpr int MAX_BUFF = 1058;
 constexpr int MAX_USR_LEN = 32;
@@ -78,6 +78,7 @@ int main(int argc, char *argv[]) {
   if (argc != 2) {
     std::cerr << "Expected a port number and got nothing!\n";
     std::cout << "Using the default port " << DEFAULT_PORT << "\n";
+    port = DEFAULT_PORT;
   } else {
     port = sanitize_port_number(std::stoi(argv[1]));
   }
@@ -88,9 +89,12 @@ int main(int argc, char *argv[]) {
   } else {
     println("Successfully made server socket");
   }
-
   // master server addrs
-  server_addr = {AF_INET, htons(port), INADDR_ANY, {0}};
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_port = htons(port);
+  server_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+  // server_addr.sin_zero = {0};
   sockaddr_len = sizeof(server_addr);
   // allows for socket to be reusable
   int opt = 1; // this option is only used for setting the server to be reusable
@@ -114,6 +118,12 @@ int main(int argc, char *argv[]) {
     char ip[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &(server_addr.sin_addr), ip, INET_ADDRSTRLEN);
     println("Server running on {}:{}", ip, ntohs(server_addr.sin_port));
+    std::cout << "Server Public IP cout" << std::endl;
+
+    int public_ip = std::system("curl ifconfig.me");
+    if (public_ip == -1) {
+      std::cerr << "Failed to get public IP\n";
+    }
   }
   // have a fd set for allowing multiple clients
   FD_ZERO(&master_set);
@@ -128,7 +138,7 @@ int main(int argc, char *argv[]) {
     // add client (child) socket file descriptors into the set
     for (int i = 0; i < MAX_CLIENTS; i++) {
       client_fd = clients[i].first;
-      /*clients[i].second = "";*/
+
       // looking for a valid client socket file description to add to add to
       if (client_fd > 0) {
         FD_SET(client_fd, &current_set);
