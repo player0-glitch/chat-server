@@ -15,11 +15,12 @@
 #include <thread>
 #include <unistd.h>
 
+#include "proto.hpp"
 using std::cout, std::endl, std::cerr;
 
 // Constants
-constexpr int NAME_LEN = 32;
-constexpr int MSG_LEN = 1024;
+// constexpr int USERNAME_LEN = 32;
+// constexpr int MAX_MSG_LEN = 1024;
 
 // globals
 int socket_fd = -1;
@@ -28,9 +29,9 @@ unsigned int port = 0;
 char ip[INET_ADDRSTRLEN]; // 16 =length of an ip address
 
 // containers
-std::string user_name(NAME_LEN, '\0');
-char buff[MSG_LEN + NAME_LEN];
-char send_buff[MSG_LEN + NAME_LEN];
+std::string user_name(USERNAME_LEN, '\0');
+char buff[MAX_MSG_LEN + USERNAME_LEN];
+char send_buff[MAX_MSG_LEN + USERNAME_LEN];
 
 void help(int argc);
 void handle_errors(const char *msg, int &arg);
@@ -106,7 +107,7 @@ void help(int argc) {
  * 3-way TCP handshake is done and a connection is established
  */
 void write_client_info() {
-    std::string name(NAME_LEN + 2, '\0');
+    std::string name(USERNAME_LEN + 2, '\0');
     name[0] = '!';
     name.insert(1, user_name);
     if (send(socket_fd, name.c_str(), name.length(), 0) < 0) {
@@ -141,7 +142,7 @@ void handle_errors(const char *msg, int &arg) {
 void send_msg(int fd) {
     // int client_fd = *((int *)fd);
     int client_fd = fd;
-    std::string message(MSG_LEN, '\0');
+    std::string message(MAX_MSG_LEN, '\0');
     std::string dettach_symbol = "!q";
     while (1) {
         // get lient input
@@ -169,7 +170,7 @@ void receive_msg(int fd) {
     // int client_fd = *((int *)fd);
     int client_fd = fd;
 
-    char recieve_buff[MSG_LEN + NAME_LEN];
+    char recieve_buff[MAX_MSG_LEN + USERNAME_LEN];
     while (1) {
 
         int bytes_in = read(client_fd, recieve_buff, sizeof(recieve_buff));
