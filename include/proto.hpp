@@ -40,18 +40,18 @@ struct client_t {
 
 void serialise_msg(std::array<char, MAX_USRNAME_LEN> &msg_fields, string_view val);
 bool found_word_with_target(string_view target_symbol, string_view msg, size_t &pos);
+
 #endif //! PROTO_HPP
 
 // To keep the principle of a header only library without happing naming conflict
 // is name manglig i decided to use header guards
-
 #ifdef PROTO_IMPL
 
 #include <algorithm>
 void serialise_msg(std::array<char, MAX_USRNAME_LEN> &msg_fields, string_view val) {
     // copy string d ata needed for message_t frame
     size_t field_length = std::min(val.size(), msg_fields.size() - 1);
-    e std::copy_n(val.begin(), field_length, msg_fields.begin());
+    std::copy_n(val.begin(), field_length, msg_fields.begin());
 
     // manaully terminate with nulls
     msg_fields[field_length] = '\0';

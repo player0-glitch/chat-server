@@ -1,14 +1,14 @@
 #ifndef ARGS_HPP
 #define ARGS_HPP
 
-// #include <iostream>
+#include <iostream>
+#include <cstring>
 #include <system_error>
 
 #if __has_include(<print>) && defined (__cpp_lib_print)
 #include <print>
 #define HAS_PRINTLN 1
 #else
-#include <iostream>
 #define HAS_PRINTLN 0
 #endif
 
@@ -46,15 +46,15 @@ void append_back(args_t *args) {
 
 char *next_arg(args_t *args) {
     append_back(args);
-    return args->args[0];
+    return args->argv[0];
 }
 
 char *expect_string(args_t *args, char *expected_string) {
-    push_back(args);
+    append_back(args);
 
-    if (expected != nullptr) {
-        if (strcmp(args->args[0], expected) == 0)
-            return expected;
+    if (expected_string != nullptr) {
+        if (strcmp(args->argv[0], expected_string) == 0)
+            return expected_string;
         else {
 #if HAS_PRINTLN
             std::println("Expected A String But Got Something Else");
@@ -84,7 +84,7 @@ int expect_int(args_t *args) {
 
     if (yes) {
         int i = 0;
-        auto [ptr, ec] std::from_chars(current, current + strlen(current), i);
+        auto [ptr, ec] = std::from_chars(current, current + strlen(current), i);
         if (ec == std::errc())
             return i;
     } else {
