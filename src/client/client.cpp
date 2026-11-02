@@ -3,7 +3,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <errno.h>
-// #include <fcntl.h>
 #include <iostream>
 #include <netinet/in.h>
 #include <poll.h>
@@ -64,12 +63,14 @@ int main(int argc, char *argv[]) {
 
   address.sin_port = htons(port);
   address.sin_family = AF_INET;
-  if (inet_pton(AF_INET, ip, &address.sin_addr) < 0) {
+  if (inet_pton(AF_INET, ip, &address.sin_addr) == -1) {
     handle_errors("IP Address error ", socket_fd);
   }
 
   // Connect client
-  if (connect(socket_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+  // implicit casting is error prone, use reinterpret_cast
+  if (connect(socket_fd, reinterpret_cast<sockaddr *>(&address),
+              sizeof(address)) < 0) {
     handle_errors("Failed to connect client to server", socket_fd);
   }
 
@@ -169,7 +170,7 @@ void *receive_msg(void *fd) {
   char recieve_buff[MSG_LEN + NAME_LEN];
   while (1) {
 
-    int bytes_in = read(client_fd, recieve_buff, sizeof(recieve_buff));
+    ssize_t bytes_in = read(client_fd, recieve_buff, sizeof(recieve_buff));
     if (bytes_in < 0) {
       cerr << "Failed to read from the server\n";
     } else if (bytes_in == 0) {

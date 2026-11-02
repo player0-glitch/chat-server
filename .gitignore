@@ -7,3 +7,4 @@ src/client/clientUI.cpp
 ##
 test/
 note.txt
+**/.DS_Store

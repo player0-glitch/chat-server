@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 project(chat-server)
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 23
+  CXX_STANDARD 23 
+  CXX_EXTENSIONS 0N
+)
 #Clangd compile commands
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -8,12 +11,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include_directories(${CMAKE_SOURCE_DIR}/include/)
 #Server executable
 add_executable(server ${CMAKE_SOURCE_DIR}/src/server/server.cpp)
-
 #Client executable
 add_executable(client ${CMAKE_SOURCE_DIR}/src/client/client.cpp)
 #compile with some debug symbol
 #making sure i compile with c++ 20
-target_compile_options(server PRIVATE -std=c++23 -Wall -Werror -Wextra -fno-inline -g -O0 )
+target_compile_options(server PRIVATE -std=c++23 -Wall -Wextra -fno-inline -g -O0 )
 target_compile_options(client PRIVATE -std=c++23 -Wall -Werror -Wextra -fno-inline -g -O0 )
 
 ##TUI

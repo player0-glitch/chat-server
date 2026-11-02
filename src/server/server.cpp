@@ -13,6 +13,7 @@
 #include <string.h>
 #include <string_view>
 #include <strings.h>
+#include <sys/_endian.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -86,25 +87,34 @@ int main(int argc, char *argv[]) {
   }
 
   // master server addrs
-  server_addr = {AF_INET, htons(port), INADDR_ANY, {0}};
+  sockaddr_in server_addr{};
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_port = htons(port);
+  server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+  // server_addr = {AF_INET,
+  //                static_cast<in_port_t>(htons(port)),
+  //                INADDR_ANY,
+  //                {0},
+  //                {0, 0, 0, 0, 0, 0, 0, 0}};
   sockaddr_len = sizeof(server_addr);
+
   // allows for socket to be reusable
   int opt = 1; // this option is only used for setting the server to be reusable
-  if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt,
-                 sizeof(opt)) != 0) {
+  if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) != 0) {
     handle_errors("Failed to make server reusable", server_fd);
   } else [[likely]] {
     println("Successfully made server reusable");
   }
 
   // bind the socket
-  if (bind(server_fd, (const struct sockaddr *)&server_addr,
-           sizeof(server_addr)) < 0) {
+  if (bind(server_fd, reinterpret_cast<sockaddr *>(&server_addr),
+           sizeof(server_addr)) == -1) {
     handle_errors("Failed to bind socket to addr", server_fd);
   }
 
   // listen to connections
-  if (listen(server_fd, 3) < 0) {
+  if (listen(server_fd, 3) == -1) {
     handle_errors("Failed to listen to connection", server_fd);
   } else [[__likely__]] {
     char ip[INET_ADDRSTRLEN];
